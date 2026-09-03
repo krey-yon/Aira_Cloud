@@ -7,12 +7,14 @@ export type AgentRequest = {
   skillId?: string;
 };
 
+export type ToolCall = {
+  name: string;
+  arguments: string;
+  result: unknown;
+};
+
 export type AgentResponse = {
   content: string;
   skillId: string;
-  toolCalls?: Array<{
-    name: string;
-    arguments: string;
-    result: unknown;
-  }>;
+  toolCalls?: ToolCall[];
 };

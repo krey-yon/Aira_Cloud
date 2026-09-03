@@ -12,7 +12,10 @@ export function getSkills(): Skill[] {
 export function getSkill(id: string): Skill {
   const skill = skills.find((entry) => entry.id === id);
   if (!skill) {
-    throw new Error(`Unknown skill: ${id}`);
+    const available = getSkills()
+      .map((entry) => entry.id)
+      .join(", ");
+    throw new Error(`Unknown skill: ${id}. Available skills: ${available}`);
   }
   return skill;
 }

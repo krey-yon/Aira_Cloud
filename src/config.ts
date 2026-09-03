@@ -8,6 +8,8 @@ export const config = {
 
 export function assertConfig() {
   if (!config.apiKey) {
-    throw new Error("AI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY is required");
+    throw new Error(
+      "Missing API key: set AI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY in the environment or in a .env file in the project root, then run again.",
+    );
   }
 }
