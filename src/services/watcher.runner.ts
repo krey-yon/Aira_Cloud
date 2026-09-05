@@ -2,13 +2,45 @@ import type { ClientRegistry } from "./client.registry";
 import { getLogRing } from "./log.ring";
 import { getNotifyQueue } from "./notify.queue";
 import { sendWatcherEmail } from "./resend.mail";
-import { describeCondition, evalCondition } from "./watcher.condition";
-import { getWatcherStore, type WatcherRecord } from "./watcher.store";
+import {
+  describeCondition,
+  evalAllConditions,
+  normalizeWatchPayload,
+} from "./watcher.condition";
+import { conditionsFor, getWatcherStore, type WatcherRecord } from "./watcher.store";
+
+async function fetchWatchJson(url: string): Promise<unknown> {
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json,text/html,*/*",
+      "User-Agent": "AiraWatcher/1.0",
+    },
+    signal: AbortSignal.timeout(25_000),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${text.slice(0, 160)}`);
+  }
+
+  const trimmed = text.trim();
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    return normalizeWatchPayload(JSON.parse(trimmed));
+  }
+
+  const nextData = trimmed.match(
+    /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i,
+  );
+  if (nextData?.[1]) {
+    return normalizeWatchPayload(JSON.parse(nextData[1]));
+  }
+
+  throw new Error("Response was not JSON and no __NEXT_DATA__ was found.");
+}
 
 /**
- * Presence-aware delivery:
- * - If extension is online (recent heartbeat), send widget + email.
- * - If offline (Mac asleep / extension gone), keep the event pending — no email spam.
+ * Presence-aware widget delivery; email still sends so grant alerts aren't lost
+ * while the Mac is asleep.
  */
 export class WatcherRunner {
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -48,7 +80,6 @@ export class WatcherRunner {
     }
   }
 
-  /** Called when an extension heartbeat arrives. */
   async onClientPresent(clientId: string) {
     await this.flushQueue(clientId);
   }
@@ -57,62 +88,35 @@ export class WatcherRunner {
     const now = Date.now();
     const nextCheckAt = now + watcher.intervalMinutes * 60_000;
     try {
-      const response = await fetch(watcher.resourceUrl, {
-        method: "GET",
-        headers: { Accept: "application/json,text/plain,*/*" },
-        signal: AbortSignal.timeout(20_000),
-      });
-      const text = await response.text();
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${text.slice(0, 160)}`);
-      }
-
-      let json: unknown = text;
-      try {
-        json = JSON.parse(text);
-      } catch {
-        // plain text — condition path still can use eq on root via empty path tricks; keep string
-        json = { value: text.trim() };
-      }
-
-      const { ok, observed } = evalCondition(json, {
-        path: watcher.conditionPath,
-        op: watcher.conditionOp,
-        value: watcher.conditionValue,
-      });
-      const observedStr =
-        typeof observed === "string" ? observed : JSON.stringify(observed);
+      const json = await fetchWatchJson(watcher.resourceUrl);
+      const conditions = conditionsFor(watcher);
+      const { ok, summary } = evalAllConditions(json, conditions);
 
       this.watchers.update(watcher.id, {
         nextCheckAt,
         lastCheckedAt: now,
-        lastValue: observedStr?.slice(0, 500),
+        lastValue: summary.slice(0, 500),
         lastError: undefined,
+        status: "active",
       });
 
       this.logs.append({
         kind: "job",
         level: "info",
         title: `watcher:${watcher.title}`,
-        body: ok
-          ? `Condition met (${describeCondition({
-              path: watcher.conditionPath,
-              op: watcher.conditionOp,
-              value: watcher.conditionValue,
-            })})`
-          : `Checked — not yet (${String(observedStr).slice(0, 120)})`,
+        body: ok ? `Condition met (${summary})` : `Checked — waiting (${summary})`,
         clientId: watcher.clientId,
         source: "watcher",
       });
 
       if (!ok) return;
 
-      // Fire once until user re-arms (status → active again).
       this.watchers.update(watcher.id, {
         status: "fired",
         lastFiredAt: now,
-        lastNudge: `Condition met: ${observedStr?.slice(0, 180) || "true"}`,
-        nextCheckAt: nextCheckAt,
+        lastNudge: `Condition met: ${summary.slice(0, 180)}`,
+        nextCheckAt,
+        lastValue: summary.slice(0, 500),
       });
 
       this.queue.enqueue({
@@ -121,12 +125,8 @@ export class WatcherRunner {
           watcher.prompt,
           "",
           `Resource: ${watcher.resourceUrl}`,
-          `Condition: ${describeCondition({
-            path: watcher.conditionPath,
-            op: watcher.conditionOp,
-            value: watcher.conditionValue,
-          })}`,
-          `Observed: ${observedStr ?? "(empty)"}`,
+          `Conditions: ${conditions.map(describeCondition).join(" AND ")}`,
+          `Observed: ${summary}`,
         ]
           .filter(Boolean)
           .join("\n"),
@@ -163,11 +163,6 @@ export class WatcherRunner {
         ? this.clients.isOnline(event.clientId)
         : this.clients.anyOnline();
 
-      if (!online) {
-        // Mac / extension offline — hold the event; do not email yet.
-        continue;
-      }
-
       const watcher = event.watcherId ? this.watchers.get(event.watcherId) : undefined;
       let emailSent = event.emailSent;
       let widgetSent = event.widgetSent;
@@ -185,7 +180,7 @@ export class WatcherRunner {
         else error = mail.error;
       }
 
-      if ((watcher?.notifyWidget ?? true) && !widgetSent && event.clientId) {
+      if ((watcher?.notifyWidget ?? true) && !widgetSent && event.clientId && online) {
         this.clients.send(event.clientId, {
           type: "widget",
           jobId: event.watcherId,
@@ -209,12 +204,15 @@ export class WatcherRunner {
         widgetSent = true;
       }
 
-      const delivered = emailSent || widgetSent;
+      const wantWidget = (watcher?.notifyWidget ?? true) && Boolean(event.clientId);
+      const widgetSatisfied = !wantWidget || widgetSent || !online;
+      const done = emailSent && widgetSatisfied;
+
       this.queue.update(event.id, {
         emailSent,
         widgetSent,
-        status: delivered ? "delivered" : error ? "failed" : "pending",
-        deliveredAt: delivered ? Date.now() : undefined,
+        status: done ? "delivered" : error && !emailSent ? "failed" : "pending",
+        deliveredAt: done ? Date.now() : undefined,
         error,
       });
     }

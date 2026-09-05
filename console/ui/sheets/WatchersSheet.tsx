@@ -22,6 +22,31 @@ type QueueEvent = {
   createdAt: number;
 };
 
+function formatChecked(at?: number) {
+  if (!at) return "not checked yet";
+  return new Date(at).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatInterval(minutes?: number) {
+  if (!minutes) return null;
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+    return hours === 1 ? "every 1h" : `every ${hours}h`;
+  }
+  return `every ${minutes}m`;
+}
+
+function statusLine(watcher: WatcherView) {
+  if (watcher.lastError) return `Error: ${watcher.lastError}`;
+  if (watcher.lastValue) return `Last: ${watcher.lastValue}`;
+  return "Waiting for first check…";
+}
+
 export function WatchersSheet({ nav, onClose, onSelect, onDraft }: Props) {
   const state = useWatchers(true);
   const [title, setTitle] = useState("");
@@ -198,20 +223,36 @@ export function WatchersSheet({ nav, onClose, onSelect, onDraft }: Props) {
               <span className={`badge is-${selected.status}`}>{selected.status}</span>
             </div>
             <div className="row-body">{selected.resourceUrl || selected.prompt}</div>
+            <div className="row is-selected" style={{ marginTop: 8 }}>
+              <div className="row-title">
+                <span>Last status</span>
+              </div>
+              <div className="row-body">{statusLine(selected)}</div>
+              <div className="row-meta">
+                {[
+                  `checked ${formatChecked(selected.lastCheckedAt)}`,
+                  selected.nextCheckAt
+                    ? `next ${formatChecked(selected.nextCheckAt)}`
+                    : null,
+                  formatInterval(selected.intervalMinutes),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
+            </div>
             <div className="row-meta">
               {[
-                selected.conditionPath &&
-                  `${selected.conditionPath} ${selected.conditionOp || ""}${
-                    selected.conditionValue ? ` ${selected.conditionValue}` : ""
-                  }`,
-                selected.intervalMinutes ? `every ${selected.intervalMinutes}m` : null,
-                selected.lastValue ? `last=${selected.lastValue}` : null,
-                selected.lastError,
+                selected.conditionsJson && selected.conditionsJson !== "[]"
+                  ? selected.conditionsJson
+                  : selected.conditionPath &&
+                    `${selected.conditionPath} ${selected.conditionOp || ""}${
+                      selected.conditionValue ? ` ${selected.conditionValue}` : ""
+                    }`,
+                selected.lastNudge,
               ]
                 .filter(Boolean)
                 .join(" · ")}
             </div>
-            {selected.lastNudge && <div className="row-body">{selected.lastNudge}</div>}
             <div className="row-actions">
               {selected.status === "active" ? (
                 <button type="button" className="btn" disabled={busy} onClick={() => void setStatus(selected.id, "paused")}>
@@ -238,7 +279,16 @@ export function WatchersSheet({ nav, onClose, onSelect, onDraft }: Props) {
                 <span>{watcher.title}</span>
                 <span className={`badge is-${watcher.status}`}>{watcher.status}</span>
               </div>
-              <div className="row-body">{(watcher.resourceUrl || watcher.prompt).slice(0, 140)}</div>
+              <div className="row-body">{statusLine(watcher)}</div>
+              <div className="row-meta">
+                {[
+                  `checked ${formatChecked(watcher.lastCheckedAt)}`,
+                  formatInterval(watcher.intervalMinutes),
+                  (watcher.resourceUrl || watcher.prompt || "").slice(0, 80),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
             </button>
           ))}
         </div>

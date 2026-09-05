@@ -3,7 +3,11 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
 import { config } from "../config";
-import type { ConditionOp } from "./watcher.condition";
+import {
+  parseConditionsJson,
+  type ConditionOp,
+  type WatchCondition,
+} from "./watcher.condition";
 
 export type WatcherStatus = "active" | "paused" | "fired" | "error";
 
@@ -15,6 +19,8 @@ export type WatcherRecord = {
   conditionPath: string;
   conditionOp: ConditionOp;
   conditionValue: string;
+  /** Extra AND conditions (JSON). Combined with the primary condition fields. */
+  conditionsJson: string;
   intervalMinutes: number;
   notifyEmail: boolean;
   notifyWidget: boolean;
@@ -35,9 +41,10 @@ export type WatcherInput = {
   title: string;
   prompt?: string;
   resourceUrl: string;
-  conditionPath: string;
+  conditionPath?: string;
   conditionOp?: ConditionOp;
   conditionValue?: string;
+  conditions?: WatchCondition[];
   intervalMinutes?: number;
   notifyEmail?: boolean;
   notifyWidget?: boolean;
@@ -54,6 +61,7 @@ type WatcherRow = {
   condition_path: string;
   condition_op: string;
   condition_value: string;
+  conditions_json: string | null;
   interval_minutes: number;
   notify_email: number;
   notify_widget: number;
@@ -83,6 +91,7 @@ function rowToWatcher(row: WatcherRow): WatcherRecord {
     conditionPath: row.condition_path,
     conditionOp: row.condition_op as ConditionOp,
     conditionValue: row.condition_value,
+    conditionsJson: row.conditions_json ?? "[]",
     intervalMinutes: row.interval_minutes,
     notifyEmail: Boolean(row.notify_email),
     notifyWidget: Boolean(row.notify_widget),
@@ -98,6 +107,19 @@ function rowToWatcher(row: WatcherRow): WatcherRecord {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+export function conditionsFor(watcher: WatcherRecord): WatchCondition[] {
+  const extras = parseConditionsJson(watcher.conditionsJson);
+  if (extras.length) return extras;
+  if (!watcher.conditionPath.trim()) return [];
+  return [
+    {
+      path: watcher.conditionPath,
+      op: watcher.conditionOp,
+      value: watcher.conditionValue || undefined,
+    },
+  ];
 }
 
 function ensureColumn(db: Database, name: string, ddl: string) {
@@ -133,6 +155,7 @@ export class WatcherStore {
     ensureColumn(this.db, "condition_path", "condition_path TEXT NOT NULL DEFAULT ''");
     ensureColumn(this.db, "condition_op", "condition_op TEXT NOT NULL DEFAULT 'truthy'");
     ensureColumn(this.db, "condition_value", "condition_value TEXT NOT NULL DEFAULT ''");
+    ensureColumn(this.db, "conditions_json", "conditions_json TEXT NOT NULL DEFAULT '[]'");
     ensureColumn(this.db, "interval_minutes", "interval_minutes INTEGER NOT NULL DEFAULT 5");
     ensureColumn(this.db, "notify_email", "notify_email INTEGER NOT NULL DEFAULT 1");
     ensureColumn(this.db, "notify_widget", "notify_widget INTEGER NOT NULL DEFAULT 1");
@@ -146,31 +169,43 @@ export class WatcherStore {
   create(input: WatcherInput): WatcherRecord {
     const title = input.title.trim();
     const resourceUrl = input.resourceUrl.trim();
-    const conditionPath = input.conditionPath.trim();
+    const conditions = input.conditions?.length
+      ? input.conditions
+      : input.conditionPath?.trim()
+        ? [
+            {
+              path: input.conditionPath.trim(),
+              op: (input.conditionOp ?? "truthy") as ConditionOp,
+              value: input.conditionValue?.trim(),
+            },
+          ]
+        : [];
     if (!title) throw new Error("title is required");
     if (!resourceUrl) throw new Error("resourceUrl is required");
-    if (!conditionPath) throw new Error("conditionPath is required");
+    if (!conditions.length) throw new Error("at least one condition is required");
     try {
-      // eslint-disable-next-line no-new
       new URL(resourceUrl);
     } catch {
       throw new Error("resourceUrl must be a valid URL");
     }
     const intervalMinutes = Math.max(1, Math.min(input.intervalMinutes ?? 5, 24 * 60));
     const now = Date.now();
+    const primary = conditions[0]!;
+    const conditionsJson = JSON.stringify(conditions);
     const prompt =
       input.prompt?.trim() ||
-      `Watch ${resourceUrl} until ${conditionPath} ${input.conditionOp ?? "truthy"}${
-        input.conditionValue ? ` ${input.conditionValue}` : ""
-      }`;
+      `Watch ${resourceUrl} until ${conditions
+        .map((c) => `${c.path} ${c.op}${c.value != null ? ` ${c.value}` : ""}`)
+        .join(" AND ")}`;
     const record: WatcherRecord = {
       id: input.id ?? newWatcherId(),
       title,
       prompt,
       resourceUrl,
-      conditionPath,
-      conditionOp: input.conditionOp ?? "truthy",
-      conditionValue: input.conditionValue?.trim() ?? "",
+      conditionPath: primary.path,
+      conditionOp: primary.op,
+      conditionValue: primary.value?.trim() ?? "",
+      conditionsJson,
       intervalMinutes,
       notifyEmail: input.notifyEmail !== false,
       notifyWidget: input.notifyWidget !== false,
@@ -185,10 +220,10 @@ export class WatcherStore {
       .query(
         `INSERT INTO watchers (
           id, title, prompt, resource_url, condition_path, condition_op, condition_value,
-          interval_minutes, notify_email, notify_widget, status, client_id, skill_id,
+          conditions_json, interval_minutes, notify_email, notify_widget, status, client_id, skill_id,
           next_check_at, last_checked_at, last_value, last_error, last_fired_at, last_nudge,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
       )
       .run(
         record.id,
@@ -198,6 +233,7 @@ export class WatcherStore {
         record.conditionPath,
         record.conditionOp,
         record.conditionValue,
+        record.conditionsJson,
         record.intervalMinutes,
         record.notifyEmail ? 1 : 0,
         record.notifyWidget ? 1 : 0,
@@ -209,6 +245,31 @@ export class WatcherStore {
         record.updatedAt,
       );
     return record;
+  }
+
+  /** Create if missing; update URL/conditions/interval if already present. */
+  ensure(input: WatcherInput & { id: string }): WatcherRecord {
+    const existing = this.get(input.id);
+    if (!existing) return this.create(input);
+    const conditions = input.conditions?.length
+      ? input.conditions
+      : conditionsFor(existing);
+    const primary = conditions[0]!;
+    return (
+      this.update(input.id, {
+        title: input.title,
+        prompt: input.prompt,
+        resourceUrl: input.resourceUrl,
+        conditionPath: primary.path,
+        conditionOp: primary.op,
+        conditionValue: primary.value ?? "",
+        conditionsJson: JSON.stringify(conditions),
+        intervalMinutes: input.intervalMinutes ?? existing.intervalMinutes,
+        notifyEmail: input.notifyEmail,
+        notifyWidget: input.notifyWidget,
+        status: existing.status === "error" ? "active" : existing.status,
+      }) ?? existing
+    );
   }
 
   get(id: string): WatcherRecord | undefined {
@@ -266,6 +327,7 @@ export class WatcherStore {
         | "conditionPath"
         | "conditionOp"
         | "conditionValue"
+        | "conditionsJson"
         | "intervalMinutes"
         | "notifyEmail"
         | "notifyWidget"
@@ -294,6 +356,8 @@ export class WatcherStore {
         patch.conditionValue !== undefined
           ? patch.conditionValue.trim()
           : current.conditionValue,
+      conditionsJson:
+        patch.conditionsJson !== undefined ? patch.conditionsJson : current.conditionsJson,
       intervalMinutes: patch.intervalMinutes ?? current.intervalMinutes,
       notifyEmail:
         patch.notifyEmail !== undefined ? patch.notifyEmail : current.notifyEmail,
@@ -316,7 +380,7 @@ export class WatcherStore {
       .query(
         `UPDATE watchers SET
           title = ?, prompt = ?, resource_url = ?, condition_path = ?, condition_op = ?,
-          condition_value = ?, interval_minutes = ?, notify_email = ?, notify_widget = ?,
+          condition_value = ?, conditions_json = ?, interval_minutes = ?, notify_email = ?, notify_widget = ?,
           status = ?, client_id = ?, skill_id = ?, next_check_at = ?, last_checked_at = ?,
           last_value = ?, last_error = ?, last_fired_at = ?, last_nudge = ?, updated_at = ?
          WHERE id = ?`,
@@ -328,6 +392,7 @@ export class WatcherStore {
         next.conditionPath,
         next.conditionOp,
         next.conditionValue,
+        next.conditionsJson,
         next.intervalMinutes,
         next.notifyEmail ? 1 : 0,
         next.notifyWidget ? 1 : 0,

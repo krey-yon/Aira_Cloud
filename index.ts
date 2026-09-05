@@ -28,6 +28,7 @@ import { getCanvasStore } from "./src/services/canvas.store";
 import { getNotifyQueue } from "./src/services/notify.queue";
 import { bindQuestionBridge, resolveQuestionReply } from "./src/services/question.bridge";
 import { getWatcherRunner } from "./src/services/watcher.runner";
+import { ensureSolanaIndiaGrantsWatcher } from "./src/services/watcher.seeds";
 import { getWatcherStore, type WatcherInput, type WatcherStatus } from "./src/services/watcher.store";
 import { getSkills } from "./src/skills";
 import { renderMarkdown } from "./src/shared/markdown";
@@ -176,6 +177,7 @@ scheduler.setExecutor(async (task) => {
 });
 
 scheduler.start();
+ensureSolanaIndiaGrantsWatcher();
 watcherRunner.start(config.watcherTickMs);
 
 function json(data: unknown, status = 200) {

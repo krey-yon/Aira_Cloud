@@ -24,10 +24,22 @@ export const createWatcherTool = tool({
   inputSchema: z.object({
     title: z.string().min(1).describe("Short label, e.g. Waitlist open"),
     resourceUrl: z.string().url().describe("GET endpoint that returns JSON"),
+    conditions: z
+      .array(
+        z.object({
+          path: z.string(),
+          op: conditionOp,
+          value: z.string().optional(),
+        }),
+      )
+      .min(1)
+      .max(8)
+      .optional()
+      .describe("AND conditions. Prefer this for multi-field checks."),
     conditionPath: z
       .string()
-      .min(1)
-      .describe("Dot path in the JSON, e.g. active or data.status"),
+      .optional()
+      .describe("Dot path in the JSON, e.g. active or pageProps.grant.isPaused"),
     conditionOp: conditionOp
       .optional()
       .describe("Comparison op (default truthy). Use eq with conditionValue for exact match."),
@@ -40,7 +52,7 @@ export const createWatcherTool = tool({
       .positive()
       .max(1440)
       .optional()
-      .describe("How often to check (minutes). Default 5."),
+      .describe("How often to check (minutes). Default 5. Use 360 for every 6 hours."),
     prompt: z.string().optional().describe("Human-readable description of what is being watched"),
     notifyEmail: z.boolean().optional().describe("Email when fired (default true)"),
     notifyWidget: z.boolean().optional().describe("Widget nudge when extension online (default true)"),
@@ -53,6 +65,7 @@ export const createWatcherTool = tool({
         conditionPath: input.conditionPath,
         conditionOp: input.conditionOp,
         conditionValue: input.conditionValue,
+        conditions: input.conditions,
         intervalMinutes: input.intervalMinutes,
         prompt: input.prompt,
         notifyEmail: input.notifyEmail,
@@ -105,10 +118,14 @@ export const listWatchersTool = tool({
         conditionPath: w.conditionPath,
         conditionOp: w.conditionOp,
         conditionValue: w.conditionValue,
+        conditionsJson: w.conditionsJson,
         intervalMinutes: w.intervalMinutes,
         status: w.status,
         lastValue: w.lastValue,
         lastError: w.lastError,
+        lastCheckedAt: w.lastCheckedAt
+          ? new Date(w.lastCheckedAt).toISOString()
+          : null,
         nextCheckAt: new Date(w.nextCheckAt).toISOString(),
       })),
     };

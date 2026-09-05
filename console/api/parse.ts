@@ -36,12 +36,15 @@ export type WatcherView = {
   conditionPath?: string;
   conditionOp?: string;
   conditionValue?: string;
+  conditionsJson?: string;
   intervalMinutes?: number;
   status: string;
   clientId?: string;
   skillId?: string;
   lastValue?: string;
   lastError?: string;
+  lastCheckedAt?: number;
+  nextCheckAt?: number;
   lastFiredAt?: number;
   lastNudge?: string;
   createdAt: number;
@@ -115,12 +118,15 @@ export function parseWatcher(raw: unknown): WatcherView | null {
     conditionPath: typeof o.conditionPath === "string" ? o.conditionPath : undefined,
     conditionOp: typeof o.conditionOp === "string" ? o.conditionOp : undefined,
     conditionValue: typeof o.conditionValue === "string" ? o.conditionValue : undefined,
+    conditionsJson: typeof o.conditionsJson === "string" ? o.conditionsJson : undefined,
     intervalMinutes: typeof o.intervalMinutes === "number" ? o.intervalMinutes : undefined,
     status: typeof o.status === "string" ? o.status : "active",
     clientId: typeof o.clientId === "string" ? o.clientId : undefined,
     skillId: typeof o.skillId === "string" ? o.skillId : undefined,
     lastValue: typeof o.lastValue === "string" ? o.lastValue : undefined,
     lastError: typeof o.lastError === "string" ? o.lastError : undefined,
+    lastCheckedAt: typeof o.lastCheckedAt === "number" ? o.lastCheckedAt : undefined,
+    nextCheckAt: typeof o.nextCheckAt === "number" ? o.nextCheckAt : undefined,
     lastFiredAt: typeof o.lastFiredAt === "number" ? o.lastFiredAt : undefined,
     lastNudge: typeof o.lastNudge === "string" ? o.lastNudge : undefined,
     createdAt: typeof o.createdAt === "number" ? o.createdAt : 0,
