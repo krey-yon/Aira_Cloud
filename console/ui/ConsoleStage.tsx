@@ -2,7 +2,6 @@ import type { ConsoleNav, LogFilter, PanelId } from "../domain/nav";
 import { useGmail } from "../hooks/useGmail";
 import { BrandPill } from "./BrandPill";
 import { Dock } from "./Dock";
-import { GmailCard } from "./GmailCard";
 import { LogoutButton } from "./LogoutButton";
 import { ErrorsSheet } from "./sheets/ErrorsSheet";
 import { LogsSheet } from "./sheets/LogsSheet";
@@ -22,7 +21,7 @@ type Props = {
 };
 
 function subtitleFor(nav: ConsoleNav, gmailEmail: string | null): string {
-  if (nav.panel === "idle") return gmailEmail ? gmailEmail : "idle";
+  if (nav.panel === "idle") return gmailEmail ? gmailEmail : "canvas";
   if (nav.panel === "logs") return "agent log";
   if (nav.panel === "schedule") return "schedule";
   if (nav.panel === "errors") return "errors";
@@ -54,22 +53,7 @@ export function ConsoleStage({
       <BrandPill subtitle={subtitleFor(nav, gmail.status?.email ?? null)} />
       <LogoutButton onLogout={onLogout} />
 
-      {nav.panel === "idle" && (
-        <div className="idle-stack">
-          <div className="idle-copy idle-copy-inline">
-            <div>
-              <h2>Aira is listening</h2>
-              <p>Open agent log · schedule · watchers · errors</p>
-            </div>
-          </div>
-          <GmailCard
-            status={gmail.status}
-            error={gmail.error}
-            busy={gmail.busy}
-            onConnect={gmail.connect}
-          />
-        </div>
-      )}
+      {/* Idle = empty canvas. Dock opens panels; Gmail connect lives on the dock. */}
 
       {nav.panel === "logs" && (
         <LogsSheet nav={nav} onClose={onClose} onSelect={onSelect} onFilter={onFilter} />
@@ -90,7 +74,10 @@ export function ConsoleStage({
         onToggleTheme={onToggleTheme}
         theme={theme}
         gmailConnected={Boolean(gmail.status?.connected)}
-        onGmail={gmail.connect}
+        onGmail={() => {
+          if (gmail.status?.connected) void gmail.disconnect();
+          else gmail.connect();
+        }}
       />
 
       <div className="hint glass">⌘⇧L theme · Esc closes</div>

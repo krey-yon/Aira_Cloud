@@ -374,6 +374,15 @@ const server = Bun.serve<SocketData>({
   development: process.env.NODE_ENV !== "production",
   routes: {
     "/": consoleIndex,
+    "/icons/icon16.png": new Response(Bun.file("./console/icons/icon16.png"), {
+      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" },
+    }),
+    "/icons/icon48.png": new Response(Bun.file("./console/icons/icon48.png"), {
+      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" },
+    }),
+    "/icons/icon128.png": new Response(Bun.file("./console/icons/icon128.png"), {
+      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" },
+    }),
     "/r/:id": {
       GET: (req) => {
         const id = req.params.id;
@@ -395,6 +404,11 @@ const server = Bun.serve<SocketData>({
           scheduler: true,
           console: true,
           gmail: gmailConfigured(),
+          workersAi: {
+            accountConfigured: Boolean(config.cloudflareAccountId),
+            tokenConfigured: Boolean(config.cloudflareApiToken),
+            model: config.defaultModel,
+          },
         }),
     },
     "/auth/gmail": {
