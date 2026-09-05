@@ -6,9 +6,10 @@ type Props = {
   children: ReactNode;
 };
 
+/** Full canvas surface for dock panels (not a modal sheet). */
 export function Sheet({ title, onClose, children }: Props) {
   return (
-    <aside className="sheet glass" role="dialog" aria-label={title}>
+    <section className="canvas-panel glass" aria-label={title}>
       <div className="sheet-header">
         <h3>{title}</h3>
         <button type="button" className="sheet-close" aria-label="Close" onClick={onClose}>
@@ -18,6 +19,6 @@ export function Sheet({ title, onClose, children }: Props) {
         </button>
       </div>
       <div className="sheet-body">{children}</div>
-    </aside>
+    </section>
   );
 }

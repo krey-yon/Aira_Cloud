@@ -20,9 +20,13 @@ test("openPanel toggles idle ↔ panel and clears selection on second tap", () =
   expect(openPanel(cleared, "logs")).toEqual(idle());
 });
 
-test("setLogFilter and watcher draft stay on typed union", () => {
+test("setLogFilter, errors panel, and watcher draft stay on typed union", () => {
   const filtered = setLogFilter(openPanel(idle(), "logs"), "errors");
   expect(filtered).toEqual({ panel: "logs", filter: "errors", selectedId: null });
+
+  const errors = openPanel(idle(), "errors");
+  expect(errors).toEqual({ panel: "errors", selectedId: null });
+  expect(selectInPanel(errors, "err_1")).toEqual({ panel: "errors", selectedId: "err_1" });
 
   const draft = beginWatcherDraft(idle());
   expect(draft).toEqual({ panel: "watchers", selectedId: null, draft: true });

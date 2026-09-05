@@ -1,6 +1,9 @@
 import type { ConsoleNav, LogFilter, PanelId } from "../domain/nav";
+import { useGmail } from "../hooks/useGmail";
 import { BrandPill } from "./BrandPill";
 import { Dock } from "./Dock";
+import { GmailCard } from "./GmailCard";
+import { ErrorsSheet } from "./sheets/ErrorsSheet";
 import { LogsSheet } from "./sheets/LogsSheet";
 import { ScheduleSheet } from "./sheets/ScheduleSheet";
 import { WatchersSheet } from "./sheets/WatchersSheet";
@@ -16,10 +19,11 @@ type Props = {
   onToggleTheme: () => void;
 };
 
-function subtitleFor(nav: ConsoleNav): string {
-  if (nav.panel === "idle") return "idle";
-  if (nav.panel === "logs") return "logs";
+function subtitleFor(nav: ConsoleNav, gmailEmail: string | null): string {
+  if (nav.panel === "idle") return gmailEmail ? gmailEmail : "idle";
+  if (nav.panel === "logs") return "agent log";
   if (nav.panel === "schedule") return "schedule";
+  if (nav.panel === "errors") return "errors";
   return nav.draft ? "watchers · draft" : "watchers";
 }
 
@@ -34,6 +38,7 @@ export function ConsoleStage({
   onToggleTheme,
 }: Props) {
   const active = nav.panel === "idle" ? null : nav.panel;
+  const gmail = useGmail(true);
 
   return (
     <main className="stage canvas-aurora">
@@ -43,35 +48,37 @@ export function ConsoleStage({
       <div className="canvas-vignette" aria-hidden />
       <div className="noise-overlay" aria-hidden />
 
-      <BrandPill subtitle={subtitleFor(nav)} />
+      <BrandPill subtitle={subtitleFor(nav, gmail.status?.email ?? null)} />
 
       {nav.panel === "idle" && (
-        <div className="idle-copy">
-          <div>
-            <h2>Aira is listening</h2>
-            <p>Open logs · schedule · watchers</p>
+        <div className="idle-stack">
+          <div className="idle-copy idle-copy-inline">
+            <div>
+              <h2>Aira is listening</h2>
+              <p>Open agent log · schedule · watchers · errors</p>
+            </div>
           </div>
+          <GmailCard
+            status={gmail.status}
+            error={gmail.error}
+            busy={gmail.busy}
+            onConnect={gmail.connect}
+            onDisconnect={gmail.disconnect}
+          />
         </div>
       )}
 
-      {nav.panel !== "idle" && (
-        <>
-          <button type="button" className="backdrop" aria-label="Close panel" onClick={onClose} />
-          {nav.panel === "logs" && (
-            <LogsSheet nav={nav} onClose={onClose} onSelect={onSelect} onFilter={onFilter} />
-          )}
-          {nav.panel === "schedule" && (
-            <ScheduleSheet nav={nav} onClose={onClose} onSelect={onSelect} />
-          )}
-          {nav.panel === "watchers" && (
-            <WatchersSheet
-              nav={nav}
-              onClose={onClose}
-              onSelect={onSelect}
-              onDraft={onDraft}
-            />
-          )}
-        </>
+      {nav.panel === "logs" && (
+        <LogsSheet nav={nav} onClose={onClose} onSelect={onSelect} onFilter={onFilter} />
+      )}
+      {nav.panel === "schedule" && (
+        <ScheduleSheet nav={nav} onClose={onClose} onSelect={onSelect} />
+      )}
+      {nav.panel === "watchers" && (
+        <WatchersSheet nav={nav} onClose={onClose} onSelect={onSelect} onDraft={onDraft} />
+      )}
+      {nav.panel === "errors" && (
+        <ErrorsSheet nav={nav} onClose={onClose} onSelect={onSelect} />
       )}
 
       <Dock
@@ -79,6 +86,8 @@ export function ConsoleStage({
         onOpen={onOpen}
         onToggleTheme={onToggleTheme}
         theme={theme}
+        gmailConnected={Boolean(gmail.status?.connected)}
+        onGmail={gmail.connect}
       />
 
       <div className="hint glass">⌘⇧L theme · Esc closes</div>

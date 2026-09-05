@@ -27,6 +27,51 @@ export const config = {
   watchersDbPath:
     process.env.WATCHERS_DB ??
     `${process.cwd()}/data/watchers.sqlite`,
+  /** SQLite path for watcher notification queue. */
+  notifyDbPath:
+    process.env.NOTIFY_DB ??
+    `${process.cwd()}/data/notify.sqlite`,
+  /** Resend API key for cloud-sent watcher emails (`RESEND` or `RESEND_API_KEY`). */
+  resendApiKey: process.env.RESEND ?? process.env.RESEND_API_KEY ?? "",
+  /** From header for watcher emails. */
+  resendFrom:
+    process.env.RESEND_FROM ??
+    "Aira <aira@kreyon.in>",
+  /** Constant destination for watcher alerts. */
+  notifyEmail:
+    process.env.AIRA_NOTIFY_EMAIL ??
+    "kushwaha.k.vikas@gmail.com",
+  /** How often the watcher runner ticks (ms). */
+  watcherTickMs: Number(process.env.WATCHER_TICK_MS ?? 15_000),
+  /** SQLite path for Gmail OAuth tokens. */
+  gmailDbPath:
+    process.env.GMAIL_DB ??
+    `${process.cwd()}/data/gmail.sqlite`,
+  /** SQLite path for long answer canvases opened from the extension. */
+  canvasDbPath:
+    process.env.CANVAS_DB ??
+    `${process.cwd()}/data/canvas.sqlite`,
+  /**
+   * Public origin for canvas links shown in the extension.
+   * Production default: https://aira.kreyon.in
+   */
+  publicBaseUrl:
+    process.env.PUBLIC_BASE_URL ??
+    process.env.AIRA_PUBLIC_URL ??
+    "",
+  /** Answers longer than this word count open on the canvas instead of the widget. */
+  canvasWordCap: Number(process.env.CANVAS_WORD_CAP ?? 120),
+  /** Google OAuth client for Gmail send/read. */
+  googleClientId: process.env.CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID ?? "",
+  googleClientSecret: process.env.CLIENT_SECRET ?? process.env.GOOGLE_CLIENT_SECRET ?? "",
+  /**
+   * Must match an Authorized redirect URI in Google Cloud Console.
+   * Local example: http://localhost:7777/auth/gmail/callback
+   */
+  gmailRedirectUri:
+    process.env.REDIRECT_URI ??
+    process.env.GMAIL_REDIRECT_URI ??
+    "",
   /** How often to poll for due tasks (ms). */
   schedulerTickMs: Number(process.env.SCHEDULER_TICK_MS ?? 1000),
   /**

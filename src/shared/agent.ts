@@ -14,9 +14,41 @@ export type JobToolCall = {
   result: unknown;
 };
 
+export type AgentQuestionOption = {
+  id: string;
+  label: string;
+};
+
+/**
+ * Generic action chip/button on the floating widget.
+ * Server or extension can attach these; the content UI renders them uniformly.
+ */
+export type WidgetAction = {
+  id: string;
+  label: string;
+  /** link opens url; dismiss clears widget; reply sends question_reply; command is reserved */
+  kind: "link" | "dismiss" | "reply" | "command";
+  url?: string;
+  style?: "primary" | "secondary" | "danger";
+  /** For kind=reply — option id sent back to the cloud */
+  optionId?: string;
+};
+
+export type WidgetBodyFormat = "plain" | "markdown";
+
+export type WidgetKind =
+  | "ack"
+  | "answer"
+  | "error"
+  | "nudge"
+  | "question"
+  | "progress"
+  | "hidden";
+
 /** Extension → cloud */
 export type ClientToServerMessage =
   | { type: "hello"; clientId: string; token?: string }
+  | { type: "heartbeat"; clientId?: string }
   | { type: "context"; url: string; title: string; tabId?: number }
   | {
       type: "ask";
@@ -25,7 +57,16 @@ export type ClientToServerMessage =
       skillId?: string;
       pageContext?: PageContext;
     }
-  | { type: "cancel"; jobId: string };
+  | { type: "cancel"; jobId: string }
+  | {
+      type: "question_reply";
+      jobId: string;
+      questionId: string;
+      optionId?: string;
+      label?: string;
+      /** Free-text answer when the human typed instead of picking a chip */
+      text?: string;
+    };
 
 /** Cloud → extension */
 export type ServerToClientMessage =
@@ -46,17 +87,26 @@ export type ServerToClientMessage =
       title: string;
       body: string;
     }
-  /** Show / update the extension floating widget */
   | {
       type: "widget";
       jobId?: string;
       title: string;
       body: string;
-      kind?: "answer" | "error" | "nudge" | "status";
-      /** Ask the extension to start Flow when presenting this message */
+      kind?: WidgetKind;
       startFlow?: boolean;
+      canvasUrl?: string;
+      questionId?: string;
+      options?: AgentQuestionOption[];
+      /** OpenCode-style free-text field under the options */
+      allowFreeText?: boolean;
+      placeholder?: string;
+      actions?: WidgetAction[];
+      format?: WidgetBodyFormat;
+      /** Auto-clear the widget after N ms (ack/progress). 0 = keep until replaced. */
+      dismissAfterMs?: number;
+      /** Force-clear any widget for this job (or the current one if no jobId). */
+      dismiss?: boolean;
     }
-  /** Reserved for proactive watching — also surfaces on the floating widget */
   | { type: "nudge"; reason: string; message: string };
 
 export type AskHttpRequest = {
@@ -88,4 +138,12 @@ export function newJobId(): string {
 
 export function newClientId(): string {
   return `ext_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
+}
+
+export function newQuestionId(): string {
+  return `q_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
+}
+
+export function newCanvasId(): string {
+  return `cv_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
 }

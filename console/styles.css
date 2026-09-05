@@ -170,6 +170,22 @@ html[data-theme="light"] .glass {
   pointer-events: none;
 }
 
+.brand-pill svg {
+  height: 2.25rem;
+  width: 2.25rem;
+  border-radius: 11px;
+  display: block;
+  flex-shrink: 0;
+}
+
+.auth-brand svg {
+  height: 2.25rem;
+  width: 2.25rem;
+  border-radius: 11px;
+  display: block;
+  flex-shrink: 0;
+}
+
 .brand-pill img {
   height: 2.25rem;
   width: 2.25rem;
@@ -297,30 +313,33 @@ html[data-theme="light"] .glass {
 }
 
 .backdrop {
-  position: absolute;
-  inset: 0;
-  z-index: 30;
-  background: color-mix(in oklab, var(--color-paper) 35%, transparent);
-  backdrop-filter: blur(2px);
+  display: none;
 }
 
-.sheet {
+.sheet,
+.canvas-panel {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
+  top: 4.75rem;
+  left: 50%;
   bottom: 5.5rem;
-  z-index: 40;
-  width: min(28rem, calc(100vw - 2rem));
+  z-index: 20;
+  width: min(52rem, calc(100vw - 2rem));
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
-  border-radius: 18px;
+  border-radius: 22px;
   overflow: hidden;
-  animation: sheet-in 0.35s var(--ease-out);
+  animation: panel-in 0.35s var(--ease-out);
+}
+
+@keyframes panel-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 @keyframes sheet-in {
-  from { opacity: 0; transform: translateX(18px); }
-  to { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 .sheet-header {
@@ -508,6 +527,176 @@ html[data-theme="light"] .glass {
   display: flex;
   gap: 0.35rem;
   margin-top: 0.55rem;
+}
+
+.auth-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.token-popup-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: color-mix(in oklab, var(--color-paper) 55%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.token-popup {
+  width: min(24rem, 100%);
+  border-radius: 20px;
+  padding: 1.25rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.brand-mark {
+  display: block;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.auth-card {
+  width: min(22rem, 100%);
+  border-radius: 18px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.auth-brand img {
+  height: 2.25rem;
+  width: 2.25rem;
+  border-radius: 11px;
+}
+
+.auth-copy {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-ink-600);
+}
+
+.auth-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+}
+
+.auth-input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid color-mix(in oklab, var(--color-ink-900) 10%, transparent);
+  background: color-mix(in oklab, var(--color-ink-50) 80%, transparent);
+  color: var(--color-ink-900);
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+  font-size: 13px;
+}
+
+.auth-input:focus {
+  outline: 2px solid color-mix(in oklab, var(--color-action) 55%, white);
+  outline-offset: 2px;
+}
+
+.auth-error {
+  font-size: 11px;
+  color: #ff758f;
+}
+
+.auth-submit {
+  margin-top: 0.25rem;
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+}
+
+.auth-hint {
+  margin: 0.15rem 0 0;
+  font-size: 10px;
+  color: var(--color-ink-500);
+  line-height: 1.4;
+}
+
+.auth-hint code {
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.idle-stack {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  pointer-events: none;
+}
+
+.idle-copy-inline {
+  position: static;
+  inset: auto;
+  display: block;
+  pointer-events: none;
+}
+
+.gmail-card {
+  pointer-events: auto;
+  width: min(22rem, 100%);
+  border-radius: 18px;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  text-align: left;
+}
+
+.gmail-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.gmail-card-copy {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--color-ink-600);
+}
+
+.gmail-email {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.gmail-scopes {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--color-ink-500);
+  word-break: break-all;
 }
 
 @media (prefers-reduced-motion: reduce) {

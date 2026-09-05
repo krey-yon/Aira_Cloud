@@ -1,0 +1,114 @@
+import { useEffect, useState } from "react";
+import { api } from "../../api/client";
+import type { ConsoleNav } from "../../domain/nav";
+import { Sheet } from "../Sheet";
+
+type CollectedError = {
+  id: string;
+  message: string;
+  code?: string;
+  source?: string;
+  clientId?: string;
+  jobId?: string;
+  url?: string;
+  stack?: string;
+  createdAt: number;
+};
+
+type Props = {
+  nav: Extract<ConsoleNav, { panel: "errors" }>;
+  onClose: () => void;
+  onSelect: (id: string | null) => void;
+};
+
+function formatTime(at: number) {
+  return new Date(at).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+export function ErrorsSheet({ nav, onClose, onSelect }: Props) {
+  const [records, setRecords] = useState<CollectedError[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const raw = await api<{ records?: CollectedError[] }>("/v1/collect-error?limit=100");
+        if (cancelled) return;
+        setRecords(Array.isArray(raw.records) ? raw.records : []);
+        setStatus("ready");
+        setMessage("");
+      } catch (err) {
+        if (cancelled) return;
+        setStatus("error");
+        setMessage(err instanceof Error ? err.message : String(err));
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const selected = records.find((r) => r.id === nav.selectedId);
+
+  return (
+    <Sheet title="Collected errors" onClose={onClose}>
+      <p className="status-line" style={{ marginTop: 0 }}>
+        Redis-backed errors from the extension and cloud agent.
+      </p>
+      {status === "loading" && <div className="status-line">Loading…</div>}
+      {status === "error" && <div className="status-line">Error: {message}</div>}
+
+      {selected ? (
+        <div className="list">
+          <button type="button" className="btn" onClick={() => onSelect(null)}>
+            ← Back to list
+          </button>
+          <div className="row is-selected">
+            <div className="row-title">
+              <span>{selected.code || selected.source || "error"}</span>
+              <span className="badge is-error">{selected.id}</span>
+            </div>
+            <div className="row-meta">{formatTime(selected.createdAt)}</div>
+            <div className="row-body">{selected.message}</div>
+            {(selected.url || selected.jobId || selected.clientId) && (
+              <div className="row-meta">
+                {[selected.url, selected.jobId, selected.clientId].filter(Boolean).join(" · ")}
+              </div>
+            )}
+            {selected.stack && (
+              <pre className="row-body" style={{ whiteSpace: "pre-wrap", fontSize: 11, opacity: 0.85 }}>
+                {selected.stack}
+              </pre>
+            )}
+          </div>
+        </div>
+      ) : records.length === 0 && status === "ready" ? (
+        <div className="empty">No Redis errors yet. Failures from the extension land here.</div>
+      ) : (
+        <div className="list">
+          {records.map((event) => (
+            <button key={event.id} type="button" className="row" onClick={() => onSelect(event.id)}>
+              <div className="row-title">
+                <span>{event.code || event.source || "error"}</span>
+                <span className="badge is-error">{event.source || "redis"}</span>
+              </div>
+              <div className="row-meta">{formatTime(event.createdAt)}</div>
+              <div className="row-body">{event.message.slice(0, 180)}</div>
+            </button>
+          ))}
+        </div>
+      )}
+    </Sheet>
+  );
+}

@@ -16,8 +16,24 @@ import { ErrorStore, type CollectErrorInput } from "./src/services/error.store";
 import { JobRunner } from "./src/services/job.runner";
 import { JobStore } from "./src/services/job.store";
 import { getLogRing } from "./src/services/log.ring";
+import {
+  completeGmailOAuth,
+  consumeOAuthState,
+  createGmailAuthUrl,
+  gmailConfigured,
+  gmailStatus,
+} from "./src/services/gmail.oauth";
+import { getGmailStore } from "./src/services/gmail.store";
+import { getCanvasStore } from "./src/services/canvas.store";
+import { getNotifyQueue } from "./src/services/notify.queue";
+import { bindQuestionBridge, resolveQuestionReply } from "./src/services/question.bridge";
+import { getWatcherRunner } from "./src/services/watcher.runner";
+import { ensureSolanaIndiaGrantsWatcher } from "./src/services/watcher.seeds";
 import { getWatcherStore, type WatcherInput, type WatcherStatus } from "./src/services/watcher.store";
 import { getSkills } from "./src/skills";
+import { renderMarkdown } from "./src/shared/markdown";
+import { previewWords, shouldUseCanvas } from "./src/shared/canvas";
+import { actionsFromText, pickBodyFormat, presentBody } from "./src/shared/widget";
 
 assertConfig();
 
@@ -29,6 +45,10 @@ const agent = new AgentService();
 const scheduler = getScheduler();
 const logs = getLogRing();
 const watchers = getWatcherStore();
+const notifyQueue = getNotifyQueue();
+const watcherRunner = getWatcherRunner(clients);
+const canvases = getCanvasStore();
+bindQuestionBridge(clients);
 
 logs.append({
   kind: "server",
@@ -55,8 +75,10 @@ scheduler.setExecutor(async (task) => {
       type: "widget",
       jobId: task.id,
       title: task.title,
-      body: `Running scheduled task…`,
-      kind: "status",
+      body: "Queued. Working in the background.",
+      kind: "ack",
+      format: "plain",
+      dismissAfterMs: 2500,
     });
   }
 
@@ -87,12 +109,39 @@ scheduler.setExecutor(async (task) => {
       source: "scheduler",
     });
     if (task.clientId) {
+      let widgetBody = body;
+      let canvasUrl: string | undefined;
+      const format = pickBodyFormat(body, {
+        canvas: shouldUseCanvas(body, config.canvasWordCap),
+      });
+      let actions = actionsFromText(body);
+      if (shouldUseCanvas(body, config.canvasWordCap)) {
+        const record = canvases.put({ markdown: body, title: task.title });
+        const origin = (config.publicBaseUrl.trim() || `http://localhost:${config.port}`).replace(/\/$/, "");
+        canvasUrl = `${origin}/r/${record.id}`;
+        widgetBody = previewWords(body);
+        actions = [
+          {
+            id: "open_canvas",
+            label: "Open full answer",
+            kind: "link" as const,
+            url: canvasUrl,
+            style: "primary" as const,
+          },
+          ...actions.filter((a) => a.url !== canvasUrl),
+        ];
+      } else {
+        widgetBody = presentBody(body, format);
+      }
       clients.send(task.clientId, {
         type: "widget",
         jobId: task.id,
         title: task.title,
-        body: body.slice(0, 1600),
+        body: widgetBody.slice(0, 1600),
         kind: "answer",
+        format,
+        actions,
+        ...(canvasUrl ? { canvasUrl } : {}),
       });
       clients.send(task.clientId, {
         type: "notify",
@@ -128,6 +177,8 @@ scheduler.setExecutor(async (task) => {
 });
 
 scheduler.start();
+ensureSolanaIndiaGrantsWatcher();
+watcherRunner.start(config.watcherTickMs);
 
 function json(data: unknown, status = 200) {
   return Response.json(data, {
@@ -198,7 +249,9 @@ function handleClientMessage(ws: ServerWebSocket<SocketData>, raw: string | Buff
       return;
     }
     ws.data.authed = true;
-    clients.attach(message.clientId || newClientId(), ws);
+    const clientId = message.clientId || newClientId();
+    clients.attach(clientId, ws);
+    void watcherRunner.onClientPresent(clientId);
     return;
   }
 
@@ -210,6 +263,15 @@ function handleClientMessage(ws: ServerWebSocket<SocketData>, raw: string | Buff
   if (!ws.data.clientId) {
     clients.attach(newClientId(), ws);
     ws.data.authed = true;
+  }
+
+  if (message.type === "heartbeat") {
+    const clientId = message.clientId || ws.data.clientId;
+    if (clientId) {
+      clients.touch(clientId);
+      void watcherRunner.onClientPresent(clientId);
+    }
+    return;
   }
 
   if (message.type === "context") {
@@ -245,7 +307,66 @@ function handleClientMessage(ws: ServerWebSocket<SocketData>, raw: string | Buff
     return;
   }
 
+  if (message.type === "question_reply") {
+    const ok = resolveQuestionReply({
+      questionId: message.questionId,
+      optionId: message.optionId,
+      label: message.label,
+      text: message.text,
+    });
+    if (!ok) {
+      send(ws, {
+        type: "error",
+        jobId: message.jobId,
+        message: "No pending question for that id",
+      });
+    }
+    return;
+  }
+
   send(ws, { type: "error", message: `Unknown message type` });
+}
+
+function canvasPage(record: { id: string; title: string; markdown: string; createdAt: string }) {
+  const bodyHtml = renderMarkdown(record.markdown);
+  const title = record.title.replace(/</g, "&lt;");
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${title} · Aira</title>
+  <style>
+    :root { color-scheme: light dark; --bg: #0f1215; --fg: #e8eef4; --muted: #9aa7b5; --card: #181c21; --accent: #78b5ff; }
+    @media (prefers-color-scheme: light) {
+      :root { --bg: #f4f6f8; --fg: #15202b; --muted: #5b6b7a; --card: #ffffff; --accent: #2563eb; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: radial-gradient(1200px 600px at 10% -10%, #1d2a3a 0%, var(--bg) 55%); color: var(--fg); font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+    main { width: min(720px, calc(100% - 32px)); margin: 48px auto 80px; padding: 28px 28px 36px; border-radius: 18px; background: color-mix(in srgb, var(--card) 92%, transparent); box-shadow: 0 24px 60px rgba(0,0,0,.22); }
+    header { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 22px; }
+    header strong { font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); }
+    header time { color: var(--muted); font-size: 12px; }
+    h1 { margin: 0 0 18px; font-size: 1.55rem; line-height: 1.25; }
+    .md p { margin: 0 0 0.9em; }
+    .md h1, .md h2, .md h3 { margin: 1.2em 0 0.45em; line-height: 1.25; }
+    .md ul, .md ol { margin: 0 0 0.9em; padding-left: 1.25em; }
+    .md code { padding: .1em .35em; border-radius: 4px; background: color-mix(in srgb, var(--fg) 8%, transparent); font: 600 0.88em/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .md pre { padding: 12px; border-radius: 10px; overflow: auto; background: color-mix(in srgb, #000 35%, var(--card)); }
+    .md a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <strong>Aira canvas</strong>
+      <time datetime="${record.createdAt}">${record.createdAt.slice(0, 19).replace("T", " ")} UTC</time>
+    </header>
+    <h1>${title}</h1>
+    <article class="md">${bodyHtml}</article>
+  </main>
+</body>
+</html>`;
 }
 
 const server = Bun.serve<SocketData>({
@@ -253,6 +374,18 @@ const server = Bun.serve<SocketData>({
   development: process.env.NODE_ENV !== "production",
   routes: {
     "/": consoleIndex,
+    "/r/:id": {
+      GET: (req) => {
+        const id = req.params.id;
+        const record = canvases.get(id);
+        if (!record) {
+          return new Response("Canvas not found", { status: 404 });
+        }
+        return new Response(canvasPage(record), {
+          headers: { "Content-Type": "text/html; charset=utf-8" },
+        });
+      },
+    },
     "/health": {
       GET: () =>
         json({
@@ -261,7 +394,98 @@ const server = Bun.serve<SocketData>({
           authRequired: Boolean(config.cloudToken),
           scheduler: true,
           console: true,
+          gmail: gmailConfigured(),
         }),
+    },
+    "/auth/gmail": {
+      GET: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        if (!gmailConfigured()) {
+          return json(
+            {
+              error:
+                "Gmail OAuth is not configured. Set CLIENT_ID, CLIENT_SECRET, and REDIRECT_URI.",
+            },
+            503,
+          );
+        }
+        try {
+          const { url } = createGmailAuthUrl();
+          return Response.redirect(url, 302);
+        } catch (err) {
+          return json(
+            { error: err instanceof Error ? err.message : String(err) },
+            500,
+          );
+        }
+      },
+    },
+    "/auth/gmail/callback": {
+      GET: async (req) => {
+        const url = new URL(req.url);
+        const error = url.searchParams.get("error");
+        if (error) {
+          return Response.redirect(
+            `/?gmail=error&message=${encodeURIComponent(error)}`,
+            302,
+          );
+        }
+        const state = url.searchParams.get("state");
+        if (!consumeOAuthState(state)) {
+          return Response.redirect("/?gmail=error&message=invalid_state", 302);
+        }
+        const code = url.searchParams.get("code");
+        if (!code) {
+          return Response.redirect("/?gmail=error&message=missing_code", 302);
+        }
+        try {
+          const account = await completeGmailOAuth(code);
+          logs.append({
+            kind: "server",
+            level: "info",
+            title: "gmail:connected",
+            body: account.email,
+            source: "gmail",
+          });
+          return Response.redirect(
+            `/?gmail=connected&email=${encodeURIComponent(account.email)}`,
+            302,
+          );
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          logs.append({
+            kind: "error",
+            level: "error",
+            title: "gmail:oauth",
+            body: message.slice(0, 800),
+            source: "gmail",
+          });
+          return Response.redirect(
+            `/?gmail=error&message=${encodeURIComponent(message)}`,
+            302,
+          );
+        }
+      },
+    },
+    "/v1/gmail": {
+      GET: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        return json(gmailStatus());
+      },
+      DELETE: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const account = getGmailStore().primary();
+        if (!account) return json({ ok: true, connected: false });
+        getGmailStore().delete(account.email);
+        logs.append({
+          kind: "server",
+          level: "info",
+          title: "gmail:disconnected",
+          body: account.email,
+          source: "gmail",
+        });
+        return json({ ok: true, connected: false });
+      },
     },
     "/v1/skills": {
       GET: (req) => {
@@ -547,7 +771,10 @@ const server = Bun.serve<SocketData>({
         } catch {
           return json({ error: "Invalid JSON body" }, 400);
         }
-        const watcher = watchers.update(id, body);
+        const watcher = watchers.update(id, {
+          ...body,
+          ...(body.status === "active" ? { nextCheckAt: Date.now(), lastError: undefined } : {}),
+        });
         if (!watcher) return json({ error: "Not found" }, 404);
         return json({ watcher });
       },
@@ -556,6 +783,34 @@ const server = Bun.serve<SocketData>({
         const id = (req as Request & { params: { id: string } }).params.id;
         if (!watchers.delete(id)) return json({ error: "Not found" }, 404);
         return json({ ok: true });
+      },
+    },
+    "/v1/notify-queue": {
+      GET: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const url = new URL(req.url);
+        const status = url.searchParams.get("status") as
+          | "pending"
+          | "delivered"
+          | "skipped"
+          | "failed"
+          | null;
+        const limit = Number(url.searchParams.get("limit") ?? 50);
+        return json({
+          events: notifyQueue.list({
+            status: status ?? undefined,
+            limit: Number.isFinite(limit) ? limit : 50,
+          }),
+        });
+      },
+    },
+    "/v1/presence": {
+      GET: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        return json({
+          anyOnline: clients.anyOnline(),
+          clients: clients.presenceSnapshot(),
+        });
       },
     },
     "/v1/ws": {

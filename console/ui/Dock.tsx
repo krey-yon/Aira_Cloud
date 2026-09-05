@@ -6,6 +6,8 @@ type Props = {
   onOpen: (panel: PanelId) => void;
   onToggleTheme: () => void;
   theme: "light" | "dark";
+  gmailConnected?: boolean;
+  onGmail?: () => void;
 };
 
 function IconButton({
@@ -32,11 +34,18 @@ function IconButton({
   );
 }
 
-export function Dock({ active, onOpen, onToggleTheme, theme }: Props) {
+export function Dock({
+  active,
+  onOpen,
+  onToggleTheme,
+  theme,
+  gmailConnected,
+  onGmail,
+}: Props) {
   return (
     <div className="dock">
       <div className="glass toolbar-shell">
-        <IconButton label="Server logs" active={active === "logs"} onClick={() => onOpen("logs")}>
+        <IconButton label="Agent log" active={active === "logs"} onClick={() => onOpen("logs")}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
             <path d="M3 3.5h8M3 7h8M3 10.5h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
@@ -65,6 +74,45 @@ export function Dock({ active, onOpen, onToggleTheme, theme }: Props) {
             <circle cx="7" cy="7" r="1.6" stroke="currentColor" strokeWidth="1.4" />
           </svg>
         </IconButton>
+        <IconButton
+          label="Collected errors"
+          active={active === "errors"}
+          onClick={() => onOpen("errors")}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+            <path
+              d="M7 1.8 12.2 12H1.8L7 1.8Z"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+            />
+            <path d="M7 5.4v3.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <circle cx="7" cy="10.2" r="0.7" fill="currentColor" />
+          </svg>
+        </IconButton>
+        {onGmail && (
+          <IconButton
+            label={gmailConnected ? "Disconnect Gmail" : "Connect Gmail"}
+            active={gmailConnected}
+            onClick={onGmail}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+              <path
+                d="M2.2 3.5h9.6v7H2.2v-7z"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M2.4 3.8L7 7.4l4.6-3.6"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </IconButton>
+        )}
         <span className="dock-divider" />
         <IconButton
           label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}

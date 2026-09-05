@@ -7,4 +7,13 @@ export { getLogRing, LogRing } from "./log.ring";
 export { LlmService } from "./llm.service";
 export { SkillsService } from "./skills.service";
 export { ToolsService } from "./tools.service";
-export { getWatcherStore, WatcherStore } from "./watcher.store";
+export { getGmailStore, GmailStore } from "./gmail.store";
+export {
+  completeGmailOAuth,
+  createGmailAuthUrl,
+  consumeOAuthState,
+  gmailConfigured,
+  gmailStatus,
+  getValidAccessToken,
+  GMAIL_SCOPES,
+} from "./gmail.oauth";
