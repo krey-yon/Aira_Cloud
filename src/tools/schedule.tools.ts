@@ -43,7 +43,7 @@ export const scheduleTaskTool = tool({
   }),
   execute: async (input) => {
     try {
-      const task = getScheduler().schedule({
+      const task = await getScheduler().schedule({
         title: input.title,
         prompt: input.prompt,
         runAt: input.runAt,
@@ -83,7 +83,7 @@ export const listScheduledTasksTool = tool({
     limit: z.number().int().min(1).max(100).default(20),
   }),
   execute: async ({ status, limit }) => {
-    const tasks = getScheduler().list({
+    const tasks = await getScheduler().list({
       status: status ?? "pending",
       limit,
     });
@@ -107,7 +107,7 @@ export const cancelScheduledTaskTool = tool({
   }),
   execute: async ({ id }) => {
     try {
-      const task = getScheduler().cancel(id);
+      const task = await getScheduler().cancel(id);
       if (!task) return { ok: false, error: "Task not found" };
       return {
         ok: true,

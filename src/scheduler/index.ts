@@ -4,7 +4,8 @@ export type {
   ScheduledTaskStatus,
 } from "./types";
 export { newTaskId, resolveRunAt } from "./types";
-export { TaskStore } from "./store";
+export { SqliteTaskStore, TaskStore, type TaskStoreApi } from "./store";
+export { RedisTaskStore } from "./redis-store";
 export {
   SchedulerService,
   getScheduler,

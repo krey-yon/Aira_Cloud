@@ -662,7 +662,7 @@ const server = Bun.serve<SocketData>({
       },
     },
     "/v1/schedule": {
-      GET: (req) => {
+      GET: async (req) => {
         if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
         const url = new URL(req.url);
         const status = url.searchParams.get("status") as
@@ -675,7 +675,7 @@ const server = Bun.serve<SocketData>({
         const clientId = url.searchParams.get("clientId") ?? undefined;
         const limit = Number(url.searchParams.get("limit") ?? 50);
         return json({
-          tasks: scheduler.list({
+          tasks: await scheduler.list({
             status: status ?? undefined,
             clientId,
             limit: Number.isFinite(limit) ? limit : 50,
@@ -691,7 +691,7 @@ const server = Bun.serve<SocketData>({
           return json({ error: "Invalid JSON body" }, 400);
         }
         try {
-          const task = scheduler.schedule(body);
+          const task = await scheduler.schedule(body);
           return json({ task }, 201);
         } catch (err) {
           return json(
@@ -702,18 +702,18 @@ const server = Bun.serve<SocketData>({
       },
     },
     "/v1/schedule/:id": {
-      GET: (req) => {
+      GET: async (req) => {
         if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
         const id = (req as Request & { params: { id: string } }).params.id;
-        const task = scheduler.get(id);
+        const task = await scheduler.get(id);
         if (!task) return json({ error: "Not found" }, 404);
         return json({ task });
       },
-      DELETE: (req) => {
+      DELETE: async (req) => {
         if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
         const id = (req as Request & { params: { id: string } }).params.id;
         try {
-          const task = scheduler.cancel(id);
+          const task = await scheduler.cancel(id);
           if (!task) return json({ error: "Not found" }, 404);
           return json({ task });
         } catch (err) {
