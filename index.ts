@@ -30,6 +30,7 @@ import { getWatcherStore, type WatcherInput, type WatcherStatus } from "./src/se
 import { getSkills } from "./src/skills";
 import { renderMarkdown } from "./src/shared/markdown";
 import { previewWords, shouldUseCanvas } from "./src/shared/canvas";
+import { actionsFromText, pickBodyFormat, presentBody } from "./src/shared/widget";
 
 assertConfig();
 
@@ -71,6 +72,8 @@ scheduler.setExecutor(async (task) => {
       title: task.title,
       body: "Queued. Working in the background.",
       kind: "ack",
+      format: "plain",
+      dismissAfterMs: 2500,
     });
   }
 
@@ -103,11 +106,27 @@ scheduler.setExecutor(async (task) => {
     if (task.clientId) {
       let widgetBody = body;
       let canvasUrl: string | undefined;
+      const format = pickBodyFormat(body, {
+        canvas: shouldUseCanvas(body, config.canvasWordCap),
+      });
+      let actions = actionsFromText(body);
       if (shouldUseCanvas(body, config.canvasWordCap)) {
         const record = canvases.put({ markdown: body, title: task.title });
         const origin = (config.publicBaseUrl.trim() || `http://localhost:${config.port}`).replace(/\/$/, "");
         canvasUrl = `${origin}/r/${record.id}`;
         widgetBody = previewWords(body);
+        actions = [
+          {
+            id: "open_canvas",
+            label: "Open full answer",
+            kind: "link" as const,
+            url: canvasUrl,
+            style: "primary" as const,
+          },
+          ...actions.filter((a) => a.url !== canvasUrl),
+        ];
+      } else {
+        widgetBody = presentBody(body, format);
       }
       clients.send(task.clientId, {
         type: "widget",
@@ -115,6 +134,8 @@ scheduler.setExecutor(async (task) => {
         title: task.title,
         body: widgetBody.slice(0, 1600),
         kind: "answer",
+        format,
+        actions,
         ...(canvasUrl ? { canvasUrl } : {}),
       });
       clients.send(task.clientId, {
@@ -273,6 +294,7 @@ function handleClientMessage(ws: ServerWebSocket<SocketData>, raw: string | Buff
       questionId: message.questionId,
       optionId: message.optionId,
       label: message.label,
+      text: message.text,
     });
     if (!ok) {
       send(ws, {

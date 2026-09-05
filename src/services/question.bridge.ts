@@ -6,6 +6,7 @@ import type { ClientRegistry } from "./client.registry";
 export type QuestionReply = {
   optionId: string;
   label: string;
+  text?: string;
 };
 
 type Pending = {
@@ -27,23 +28,36 @@ export function bindQuestionBridge(registry: ClientRegistry) {
 
 export function resolveQuestionReply(input: {
   questionId: string;
-  optionId: string;
+  optionId?: string;
   label?: string;
+  text?: string;
 }): boolean {
   const entry = pending.get(input.questionId);
   if (!entry) return false;
   clearTimeout(entry.timer);
   pending.delete(input.questionId);
+
+  const free = input.text?.trim();
+  const optionId = (input.optionId || (free ? "free_text" : "")).trim();
+  const label = (input.label?.trim() || free || optionId).trim();
+  if (!optionId && !free) {
+    entry.reject(new Error("Empty reply."));
+    return true;
+  }
+
   entry.resolve({
-    optionId: input.optionId,
-    label: input.label?.trim() || input.optionId,
+    optionId: optionId || "free_text",
+    label,
+    ...(free ? { text: free } : {}),
   });
   return true;
 }
 
 export async function askUser(input: {
   prompt: string;
-  options: AgentQuestionOption[];
+  options?: AgentQuestionOption[];
+  allowFreeText?: boolean;
+  placeholder?: string;
   timeoutMs?: number;
 }): Promise<QuestionReply> {
   const registry = clients;
@@ -54,15 +68,16 @@ export async function askUser(input: {
     throw new Error("ask_user requires an active extension job.");
   }
 
-  const options = input.options
+  const options = (input.options ?? [])
     .map((option, index) => ({
       id: (option.id || `opt_${index + 1}`).trim(),
       label: option.label.trim(),
     }))
     .filter((option) => option.id && option.label);
 
-  if (options.length < 2) {
-    throw new Error("ask_user needs at least two options.");
+  const allowFreeText = input.allowFreeText !== false;
+  if (options.length < 2 && !allowFreeText) {
+    throw new Error("ask_user needs at least two options, or allowFreeText.");
   }
 
   const questionId = newQuestionId();
@@ -82,8 +97,11 @@ export async function askUser(input: {
     title: "Aira needs a choice",
     body: input.prompt.trim(),
     kind: "question",
+    format: "plain",
     questionId,
     options,
+    allowFreeText,
+    placeholder: input.placeholder?.trim() || "Or type your own answer…",
   });
 
   return reply;

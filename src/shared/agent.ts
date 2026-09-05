@@ -19,7 +19,31 @@ export type AgentQuestionOption = {
   label: string;
 };
 
-export type WidgetKind = "ack" | "answer" | "error" | "nudge" | "question";
+/**
+ * Generic action chip/button on the floating widget.
+ * Server or extension can attach these; the content UI renders them uniformly.
+ */
+export type WidgetAction = {
+  id: string;
+  label: string;
+  /** link opens url; dismiss clears widget; reply sends question_reply; command is reserved */
+  kind: "link" | "dismiss" | "reply" | "command";
+  url?: string;
+  style?: "primary" | "secondary" | "danger";
+  /** For kind=reply — option id sent back to the cloud */
+  optionId?: string;
+};
+
+export type WidgetBodyFormat = "plain" | "markdown";
+
+export type WidgetKind =
+  | "ack"
+  | "answer"
+  | "error"
+  | "nudge"
+  | "question"
+  | "progress"
+  | "hidden";
 
 /** Extension → cloud */
 export type ClientToServerMessage =
@@ -37,8 +61,10 @@ export type ClientToServerMessage =
       type: "question_reply";
       jobId: string;
       questionId: string;
-      optionId: string;
+      optionId?: string;
       label?: string;
+      /** Free-text answer when the human typed instead of picking a chip */
+      text?: string;
     };
 
 /** Cloud → extension */
@@ -70,6 +96,15 @@ export type ServerToClientMessage =
       canvasUrl?: string;
       questionId?: string;
       options?: AgentQuestionOption[];
+      /** OpenCode-style free-text field under the options */
+      allowFreeText?: boolean;
+      placeholder?: string;
+      actions?: WidgetAction[];
+      format?: WidgetBodyFormat;
+      /** Auto-clear the widget after N ms (ack/progress). 0 = keep until replaced. */
+      dismissAfterMs?: number;
+      /** Force-clear any widget for this job (or the current one if no jobId). */
+      dismiss?: boolean;
     }
   | { type: "nudge"; reason: string; message: string };
 

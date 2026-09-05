@@ -20,7 +20,7 @@ type Props = {
 
 function subtitleFor(nav: ConsoleNav, gmailEmail: string | null): string {
   if (nav.panel === "idle") return gmailEmail ? gmailEmail : "idle";
-  if (nav.panel === "logs") return "logs";
+  if (nav.panel === "logs") return "agent log";
   if (nav.panel === "schedule") return "schedule";
   return nav.draft ? "watchers · draft" : "watchers";
 }
@@ -53,7 +53,7 @@ export function ConsoleStage({
           <div className="idle-copy idle-copy-inline">
             <div>
               <h2>Aira is listening</h2>
-              <p>Open logs · schedule · watchers</p>
+              <p>Open agent log · schedule · watchers</p>
             </div>
           </div>
           <GmailCard

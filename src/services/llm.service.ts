@@ -4,6 +4,16 @@ import { generateText, isStepCount, type ToolSet } from "ai";
 import { assertConfig, config } from "../config";
 import type { Message } from "../types";
 
+export type StepToolEvent = {
+  name: string;
+  arguments: string;
+  result: unknown;
+};
+
+export type GenerateHooks = {
+  onTools?: (tools: StepToolEvent[]) => void;
+};
+
 export class LlmService {
   private readonly google;
 
@@ -21,6 +31,7 @@ export class LlmService {
     messages: Message[];
     tools?: ToolSet;
     maxSteps?: number;
+    hooks?: GenerateHooks;
   }) {
     return generateText({
       model: this.model(),
@@ -28,6 +39,14 @@ export class LlmService {
       messages: params.messages,
       tools: params.tools,
       stopWhen: isStepCount(params.maxSteps ?? 5),
+      onStepFinish: (step) => {
+        const tools = (step.toolCalls ?? []).map((toolCall, index) => ({
+          name: toolCall.toolName,
+          arguments: JSON.stringify(toolCall.input ?? {}),
+          result: step.toolResults?.[index]?.output,
+        }));
+        if (tools.length) params.hooks?.onTools?.(tools);
+      },
     });
   }
 }

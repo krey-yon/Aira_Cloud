@@ -33,7 +33,7 @@ export function LogsSheet({ nav, onClose, onSelect, onFilter }: Props) {
   const selected = events.find((e) => e.id === nav.selectedId);
 
   return (
-    <Sheet title="Server logs" onClose={onClose}>
+    <Sheet title="Agent log" onClose={onClose}>
       <div className="filters">
         {FILTERS.map((f) => (
           <button
@@ -72,7 +72,7 @@ export function LogsSheet({ nav, onClose, onSelect, onFilter }: Props) {
           </div>
         </div>
       ) : events.length === 0 && state.status === "ready" ? (
-        <div className="empty">No log events yet. Ask the agent or wait for scheduler activity.</div>
+        <div className="empty">No agent activity yet. Send a task from the extension.</div>
       ) : (
         <div className="list">
           {events.map((event) => (

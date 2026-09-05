@@ -45,7 +45,7 @@ export function Dock({
   return (
     <div className="dock">
       <div className="glass toolbar-shell">
-        <IconButton label="Server logs" active={active === "logs"} onClick={() => onOpen("logs")}>
+        <IconButton label="Agent log" active={active === "logs"} onClick={() => onOpen("logs")}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
             <path d="M3 3.5h8M3 7h8M3 10.5h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>

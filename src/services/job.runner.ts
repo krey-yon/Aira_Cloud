@@ -1,5 +1,10 @@
-import type { PageContext, WidgetKind } from "../shared/agent";
+import type { PageContext, WidgetAction, WidgetKind } from "../shared/agent";
 import { previewWords, shouldUseCanvas } from "../shared/canvas";
+import {
+  actionsFromText,
+  pickBodyFormat,
+  presentBody,
+} from "../shared/widget";
 import { config } from "../config";
 import { requestContext } from "../lib/request-context";
 import type { AgentRequest } from "../types";
@@ -23,7 +28,7 @@ function buildUserContent(text: string, pageContext?: PageContext): string {
   lines.push(
     "",
     "Use websearch/webfetch when you need to research this page or product.",
-    "When you need a human decision, call ask_user with short options.",
+    "When you need a human decision, call ask_user (options + optional free text).",
   );
   return lines.join("\n");
 }
@@ -32,6 +37,39 @@ function publicOrigin(): string {
   const configured = config.publicBaseUrl.trim().replace(/\/$/, "");
   if (configured) return configured;
   return `http://localhost:${config.port}`;
+}
+
+function toolTitle(name: string): string {
+  const map: Record<string, string> = {
+    ask_user: "Asking you a question",
+    websearch: "Searching the web",
+    webfetch: "Reading a page",
+    notion_create_page: "Creating a Notion page",
+    notion_write_page: "Writing Notion content",
+    notion_search: "Searching Notion",
+    notion_read_page: "Reading a Notion page",
+    notion_update_page: "Updating Notion",
+    notion_create_database: "Creating a Notion database",
+    schedule_task: "Scheduling a task",
+    list_scheduled_tasks: "Listing scheduled tasks",
+    cancel_scheduled_task: "Cancelling a scheduled task",
+  };
+  return map[name] ?? `Running ${name}`;
+}
+
+function summarizeToolResult(name: string, result: unknown): string {
+  if (result == null) return "done";
+  if (typeof result === "string") return result.slice(0, 280);
+  try {
+    const json = JSON.stringify(result);
+    if (name.startsWith("notion_") && json.includes("url")) {
+      const match = json.match(/https?:\/\/[^"\\]+/);
+      if (match) return match[0];
+    }
+    return json.slice(0, 280);
+  } catch {
+    return "done";
+  }
 }
 
 export class JobRunner {
@@ -77,11 +115,24 @@ export class JobRunner {
     payload?: unknown,
   ) {
     this.jobs.appendEvent(job.id, { kind, message, payload });
+    const title =
+      kind === "tool"
+        ? toolTitle(message)
+        : kind === "status"
+          ? `Job ${job.status === "running" ? "started" : job.status}`
+          : kind === "answer"
+            ? "Answer ready"
+            : "Job failed";
     this.logs.append({
       kind: kind === "tool" ? "tool" : kind === "error" ? "error" : "job",
       level: kind === "error" ? "error" : "info",
-      title: kind === "tool" ? `tool:${message}` : `${job.id} ${kind}`,
-      body: typeof payload === "string" ? payload : message,
+      title,
+      body:
+        typeof payload === "string"
+          ? payload
+          : kind === "tool"
+            ? summarizeToolResult(message, payload)
+            : message,
       jobId: job.id,
       clientId: job.clientId,
       skillId: job.skillId,
@@ -90,15 +141,28 @@ export class JobRunner {
   }
 
   private presentAnswer(job: JobRecord, content: string, title = "Aira") {
-    const body = content.trim() || "Done.";
-    let widgetBody = body;
+    const raw = content.trim() || "Done.";
+    const useCanvas = shouldUseCanvas(raw, config.canvasWordCap);
+    const format = pickBodyFormat(raw, { canvas: useCanvas });
+    let widgetBody = presentBody(raw, format);
     let canvasUrl: string | undefined;
     let kind: WidgetKind = "answer";
+    let actions: WidgetAction[] = actionsFromText(raw);
 
-    if (shouldUseCanvas(body, config.canvasWordCap)) {
-      const record = this.canvases.put({ markdown: body, title });
+    if (useCanvas) {
+      const record = this.canvases.put({ markdown: raw, title });
       canvasUrl = `${publicOrigin()}/r/${record.id}`;
-      widgetBody = previewWords(body);
+      widgetBody = previewWords(raw);
+      actions = [
+        {
+          id: "open_canvas",
+          label: "Open full answer",
+          kind: "link",
+          url: canvasUrl,
+          style: "primary",
+        },
+        ...actions.filter((a) => a.url !== canvasUrl),
+      ];
     }
 
     this.emit(job, {
@@ -107,6 +171,8 @@ export class JobRunner {
       title,
       body: widgetBody.slice(0, 1600),
       kind,
+      format,
+      actions,
       ...(canvasUrl ? { canvasUrl } : {}),
     });
   }
@@ -114,7 +180,18 @@ export class JobRunner {
   private async runOne(job: JobRecord) {
     this.jobs.update(job.id, { status: "running" });
     this.note(job, "status", "running");
-    this.emit(job, { type: "status", jobId: job.id, status: "running", phase: "researching" });
+    this.logs.append({
+      kind: "job",
+      level: "info",
+      title: "Task received",
+      body: job.text.slice(0, 400),
+      jobId: job.id,
+      clientId: job.clientId,
+      skillId: job.skillId,
+      source: "runner",
+    });
+    // Status stays on the wire for diagnostics; do not spam the widget with "researching".
+    this.emit(job, { type: "status", jobId: job.id, status: "running", phase: "working" });
 
     try {
       const request: AgentRequest = {
@@ -129,24 +206,37 @@ export class JobRunner {
 
       const result = await requestContext.run(
         { clientId: job.clientId, jobId: job.id },
-        () => this.agent.run(request),
+        () =>
+          this.agent.run(request, {
+            onTools: (tools) => {
+              for (const call of tools) {
+                this.note(job, "tool", call.name, {
+                  arguments: call.arguments,
+                  result: call.result,
+                });
+                this.emit(job, {
+                  type: "tool",
+                  jobId: job.id,
+                  name: call.name,
+                  arguments: call.arguments,
+                  result: call.result,
+                });
+                // Quiet progress pulse — auto-dismisses; never stuck "On it".
+                if (call.name !== "ask_user") {
+                  this.emit(job, {
+                    type: "widget",
+                    jobId: job.id,
+                    title: "Aira",
+                    body: toolTitle(call.name),
+                    kind: "progress",
+                    format: "plain",
+                    dismissAfterMs: 3500,
+                  });
+                }
+              }
+            },
+          }),
       );
-
-      if (result.toolCalls?.length) {
-        for (const call of result.toolCalls) {
-          this.note(job, "tool", call.name, {
-            arguments: call.arguments,
-            result: call.result,
-          });
-          this.emit(job, {
-            type: "tool",
-            jobId: job.id,
-            name: call.name,
-            arguments: call.arguments,
-            result: call.result,
-          });
-        }
-      }
 
       this.jobs.update(job.id, {
         status: "done",
@@ -163,7 +253,7 @@ export class JobRunner {
         skillId: result.skillId,
       });
 
-      const body = result.content.trim() || "Research finished.";
+      const body = result.content.trim() || "Done.";
       this.presentAnswer(job, body);
       this.emit(job, {
         type: "notify",
@@ -184,6 +274,8 @@ export class JobRunner {
         title: "Aira failed",
         body: message.slice(0, 800),
         kind: "error",
+        format: "plain",
+        actions: [{ id: "dismiss", label: "Dismiss", kind: "dismiss", style: "secondary" }],
       });
       this.emit(job, {
         type: "notify",
