@@ -27,6 +27,21 @@ export const config = {
   watchersDbPath:
     process.env.WATCHERS_DB ??
     `${process.cwd()}/data/watchers.sqlite`,
+  /** SQLite path for Gmail OAuth tokens. */
+  gmailDbPath:
+    process.env.GMAIL_DB ??
+    `${process.cwd()}/data/gmail.sqlite`,
+  /** Google OAuth client for Gmail send/read. */
+  googleClientId: process.env.CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID ?? "",
+  googleClientSecret: process.env.CLIENT_SECRET ?? process.env.GOOGLE_CLIENT_SECRET ?? "",
+  /**
+   * Must match an Authorized redirect URI in Google Cloud Console.
+   * Local example: http://localhost:7777/auth/gmail/callback
+   */
+  gmailRedirectUri:
+    process.env.REDIRECT_URI ??
+    process.env.GMAIL_REDIRECT_URI ??
+    "",
   /** How often to poll for due tasks (ms). */
   schedulerTickMs: Number(process.env.SCHEDULER_TICK_MS ?? 1000),
   /**

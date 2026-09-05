@@ -16,6 +16,14 @@ import { ErrorStore, type CollectErrorInput } from "./src/services/error.store";
 import { JobRunner } from "./src/services/job.runner";
 import { JobStore } from "./src/services/job.store";
 import { getLogRing } from "./src/services/log.ring";
+import {
+  completeGmailOAuth,
+  consumeOAuthState,
+  createGmailAuthUrl,
+  gmailConfigured,
+  gmailStatus,
+} from "./src/services/gmail.oauth";
+import { getGmailStore } from "./src/services/gmail.store";
 import { getWatcherStore, type WatcherInput, type WatcherStatus } from "./src/services/watcher.store";
 import { getSkills } from "./src/skills";
 
@@ -261,7 +269,98 @@ const server = Bun.serve<SocketData>({
           authRequired: Boolean(config.cloudToken),
           scheduler: true,
           console: true,
+          gmail: gmailConfigured(),
         }),
+    },
+    "/auth/gmail": {
+      GET: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        if (!gmailConfigured()) {
+          return json(
+            {
+              error:
+                "Gmail OAuth is not configured. Set CLIENT_ID, CLIENT_SECRET, and REDIRECT_URI.",
+            },
+            503,
+          );
+        }
+        try {
+          const { url } = createGmailAuthUrl();
+          return Response.redirect(url, 302);
+        } catch (err) {
+          return json(
+            { error: err instanceof Error ? err.message : String(err) },
+            500,
+          );
+        }
+      },
+    },
+    "/auth/gmail/callback": {
+      GET: async (req) => {
+        const url = new URL(req.url);
+        const error = url.searchParams.get("error");
+        if (error) {
+          return Response.redirect(
+            `/?gmail=error&message=${encodeURIComponent(error)}`,
+            302,
+          );
+        }
+        const state = url.searchParams.get("state");
+        if (!consumeOAuthState(state)) {
+          return Response.redirect("/?gmail=error&message=invalid_state", 302);
+        }
+        const code = url.searchParams.get("code");
+        if (!code) {
+          return Response.redirect("/?gmail=error&message=missing_code", 302);
+        }
+        try {
+          const account = await completeGmailOAuth(code);
+          logs.append({
+            kind: "server",
+            level: "info",
+            title: "gmail:connected",
+            body: account.email,
+            source: "gmail",
+          });
+          return Response.redirect(
+            `/?gmail=connected&email=${encodeURIComponent(account.email)}`,
+            302,
+          );
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          logs.append({
+            kind: "error",
+            level: "error",
+            title: "gmail:oauth",
+            body: message.slice(0, 800),
+            source: "gmail",
+          });
+          return Response.redirect(
+            `/?gmail=error&message=${encodeURIComponent(message)}`,
+            302,
+          );
+        }
+      },
+    },
+    "/v1/gmail": {
+      GET: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        return json(gmailStatus());
+      },
+      DELETE: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const account = getGmailStore().primary();
+        if (!account) return json({ ok: true, connected: false });
+        getGmailStore().delete(account.email);
+        logs.append({
+          kind: "server",
+          level: "info",
+          title: "gmail:disconnected",
+          body: account.email,
+          source: "gmail",
+        });
+        return json({ ok: true, connected: false });
+      },
     },
     "/v1/skills": {
       GET: (req) => {

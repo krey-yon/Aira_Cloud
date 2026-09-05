@@ -6,6 +6,8 @@ type Props = {
   onOpen: (panel: PanelId) => void;
   onToggleTheme: () => void;
   theme: "light" | "dark";
+  gmailConnected?: boolean;
+  onGmail?: () => void;
 };
 
 function IconButton({
@@ -32,7 +34,14 @@ function IconButton({
   );
 }
 
-export function Dock({ active, onOpen, onToggleTheme, theme }: Props) {
+export function Dock({
+  active,
+  onOpen,
+  onToggleTheme,
+  theme,
+  gmailConnected,
+  onGmail,
+}: Props) {
   return (
     <div className="dock">
       <div className="glass toolbar-shell">
@@ -65,6 +74,29 @@ export function Dock({ active, onOpen, onToggleTheme, theme }: Props) {
             <circle cx="7" cy="7" r="1.6" stroke="currentColor" strokeWidth="1.4" />
           </svg>
         </IconButton>
+        {onGmail && (
+          <IconButton
+            label={gmailConnected ? "Disconnect Gmail" : "Connect Gmail"}
+            active={gmailConnected}
+            onClick={onGmail}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+              <path
+                d="M2.2 3.5h9.6v7H2.2v-7z"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M2.4 3.8L7 7.4l4.6-3.6"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </IconButton>
+        )}
         <span className="dock-divider" />
         <IconButton
           label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}

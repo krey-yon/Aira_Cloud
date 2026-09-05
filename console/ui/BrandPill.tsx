@@ -1,3 +1,5 @@
+import { BrandMark } from "./BrandMark";
+
 type Props = {
   subtitle: string;
 };
@@ -5,7 +7,7 @@ type Props = {
 export function BrandPill({ subtitle }: Props) {
   return (
     <div className="brand-pill workspace-pill">
-      <img src="./aira-mark.svg" alt="" aria-hidden />
+      <BrandMark />
       <div>
         <div>
           <span className="brand-name">Aira</span>
