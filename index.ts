@@ -7,7 +7,7 @@ import type {
   ServerToClientMessage,
 } from "./src/shared/agent";
 import { newClientId, newJobId } from "./src/shared/agent";
-import { assertConfig, config } from "./src/config";
+import { config } from "./src/config";
 import { requestContext } from "./src/lib/request-context";
 import { getScheduler, type ScheduleInput } from "./src/scheduler";
 import { AgentService } from "./src/services/agent.service";
@@ -35,7 +35,11 @@ import { renderMarkdown } from "./src/shared/markdown";
 import { previewWords, shouldUseCanvas } from "./src/shared/canvas";
 import { actionsFromText, pickBodyFormat, presentBody } from "./src/shared/widget";
 
-assertConfig();
+if (!config.cloudflareAccountId || !config.cloudflareApiToken) {
+  console.warn(
+    "[aira] CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN missing — agent LLM calls will fail until set.",
+  );
+}
 
 const jobs = new JobStore();
 const clients = new ClientRegistry();
@@ -374,15 +378,9 @@ const server = Bun.serve<SocketData>({
   development: process.env.NODE_ENV !== "production",
   routes: {
     "/": consoleIndex,
-    "/icons/icon16.png": new Response(Bun.file("./console/icons/icon16.png"), {
-      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" },
-    }),
-    "/icons/icon48.png": new Response(Bun.file("./console/icons/icon48.png"), {
-      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" },
-    }),
-    "/icons/icon128.png": new Response(Bun.file("./console/icons/icon128.png"), {
-      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" },
-    }),
+    "/icons/icon16.png": Bun.file("./console/icons/icon16.png"),
+    "/icons/icon48.png": Bun.file("./console/icons/icon48.png"),
+    "/icons/icon128.png": Bun.file("./console/icons/icon128.png"),
     "/r/:id": {
       GET: (req) => {
         const id = req.params.id;

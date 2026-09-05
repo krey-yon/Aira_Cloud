@@ -17,18 +17,21 @@ export type GenerateHooks = {
 };
 
 export class LlmService {
-  private readonly workersai;
+  private workersai: ReturnType<typeof createWorkersAI> | null = null;
 
-  constructor() {
-    assertConfig();
-    this.workersai = createWorkersAI({
-      accountId: config.cloudflareAccountId,
-      apiKey: config.cloudflareApiToken,
-    });
+  private provider() {
+    if (!this.workersai) {
+      assertConfig();
+      this.workersai = createWorkersAI({
+        accountId: config.cloudflareAccountId,
+        apiKey: config.cloudflareApiToken,
+      });
+    }
+    return this.workersai;
   }
 
   model() {
-    return this.workersai(config.defaultModel as `@cf/${string}`);
+    return this.provider()(config.defaultModel as `@cf/${string}`);
   }
 
   async generate(params: {
