@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import type { ConsoleNav } from "../../domain/nav";
+import { formatRelativeTime } from "../../lib/relative-time";
 import { CopyButton } from "../CopyButton";
 import { Sheet } from "../Sheet";
 
@@ -22,20 +23,10 @@ type Props = {
   onSelect: (id: string | null) => void;
 };
 
-function formatTime(at: number) {
-  return new Date(at).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
-
 function copyPayload(error: CollectedError): string {
   return [
     error.code || error.source || "error",
-    formatTime(error.createdAt),
+    new Date(error.createdAt).toISOString(),
     error.message,
     error.stack,
     error.url,
@@ -114,7 +105,7 @@ export function ErrorsSheet({ nav, onClose, onSelect }: Props) {
                 <CopyButton text={copyPayload(selected)} label="Copy error" />
               </span>
             </div>
-            <div className="row-meta">{formatTime(selected.createdAt)}</div>
+            <div className="row-meta">{formatRelativeTime(selected.createdAt)}</div>
             <pre className="log-body">{selected.message}</pre>
             {(selected.url || selected.jobId || selected.clientId) && (
               <div className="row-meta">
@@ -141,7 +132,7 @@ export function ErrorsSheet({ nav, onClose, onSelect }: Props) {
                 <span>{event.code || event.source || "error"}</span>
                 <span className="badge is-error">{event.source || "redis"}</span>
               </div>
-              <div className="row-meta">{formatTime(event.createdAt)}</div>
+              <div className="row-meta">{formatRelativeTime(event.createdAt)}</div>
               <div className="row-body">{event.message.slice(0, 180)}</div>
             </button>
           ))}
