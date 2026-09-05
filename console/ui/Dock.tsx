@@ -26,6 +26,7 @@ function IconButton({
       type="button"
       className={`dock-btn${active ? " is-active" : ""}`}
       aria-label={label}
+      title={label}
       aria-pressed={active}
       onClick={onClick}
     >

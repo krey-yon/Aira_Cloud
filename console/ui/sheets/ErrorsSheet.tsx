@@ -75,14 +75,31 @@ export function ErrorsSheet({ nav, onClose, onSelect }: Props) {
   }, []);
 
   const selected = records.find((r) => r.id === nav.selectedId);
+  const copyAllText = records.map(copyPayload).join("\n\n---\n\n");
 
   return (
-    <Sheet title="Collected errors" onClose={onClose}>
-      <p className="status-line" style={{ marginTop: 0 }}>
-        Redis-backed errors from the extension and cloud agent.
-      </p>
+    <Sheet
+      title="Collected errors"
+      eyebrow="Redis"
+      onClose={onClose}
+      actions={
+        <CopyButton
+          text={copyAllText}
+          label="Copy all"
+          mode="label"
+          disabled={records.length === 0}
+        />
+      }
+    >
       {status === "loading" && <div className="status-line">Loading…</div>}
       {status === "error" && <div className="status-line">Error: {message}</div>}
+      {status === "ready" && (
+        <div className="status-line">
+          {records.length === 0
+            ? "Waiting for extension and cloud agent failures."
+            : `${records.length} error${records.length === 1 ? "" : "s"}`}
+        </div>
+      )}
 
       {selected ? (
         <div className="list">
@@ -93,7 +110,7 @@ export function ErrorsSheet({ nav, onClose, onSelect }: Props) {
             <div className="row-title">
               <span>{selected.code || selected.source || "error"}</span>
               <span className="row-title-actions">
-                <span className="badge is-error">{selected.id}</span>
+                <span className="badge is-error">{selected.source || "redis"}</span>
                 <CopyButton text={copyPayload(selected)} label="Copy error" />
               </span>
             </div>
@@ -101,14 +118,16 @@ export function ErrorsSheet({ nav, onClose, onSelect }: Props) {
             <pre className="log-body">{selected.message}</pre>
             {(selected.url || selected.jobId || selected.clientId) && (
               <div className="row-meta">
-                {[selected.url, selected.jobId, selected.clientId].filter(Boolean).join(" · ")}
+                {[selected.url, selected.jobId && `job: ${selected.jobId}`, selected.clientId && `client: ${selected.clientId}`]
+                  .filter(Boolean)
+                  .join(" · ")}
               </div>
             )}
             {selected.stack && <pre className="log-body is-stack">{selected.stack}</pre>}
           </div>
         </div>
       ) : records.length === 0 && status === "ready" ? (
-        <div className="empty">No Redis errors yet. Failures from the extension land here.</div>
+        <div className="empty">No Redis errors yet.</div>
       ) : (
         <div className="list">
           {records.map((event) => (
@@ -120,10 +139,7 @@ export function ErrorsSheet({ nav, onClose, onSelect }: Props) {
             >
               <div className="row-title">
                 <span>{event.code || event.source || "error"}</span>
-                <span className="row-title-actions">
-                  <span className="badge is-error">{event.source || "redis"}</span>
-                  <CopyButton text={copyPayload(event)} label="Copy error" />
-                </span>
+                <span className="badge is-error">{event.source || "redis"}</span>
               </div>
               <div className="row-meta">{formatTime(event.createdAt)}</div>
               <div className="row-body">{event.message.slice(0, 180)}</div>

@@ -3,26 +3,38 @@ import { useState } from "react";
 type Props = {
   text: string;
   label?: string;
+  mode?: "icon" | "label";
+  disabled?: boolean;
 };
 
-export function CopyButton({ text, label = "Copy" }: Props) {
+export function CopyButton({ text, label = "Copy", mode = "icon", disabled = false }: Props) {
   const [copied, setCopied] = useState(false);
+  const idleLabel = label;
+  const activeLabel = "Copied";
 
   return (
     <button
       type="button"
-      className={`icon-btn copy-btn${copied ? " is-copied" : ""}`}
-      aria-label={copied ? "Copied" : label}
-      title={copied ? "Copied" : label}
+      className={
+        mode === "label"
+          ? `btn sheet-action${copied ? " is-copied" : ""}`
+          : `icon-btn copy-btn${copied ? " is-copied" : ""}`
+      }
+      aria-label={copied ? activeLabel : idleLabel}
+      title={copied ? activeLabel : idleLabel}
+      disabled={disabled || !text}
       onClick={(event) => {
         event.stopPropagation();
+        if (!text) return;
         void navigator.clipboard.writeText(text).then(() => {
           setCopied(true);
           window.setTimeout(() => setCopied(false), 1400);
         });
       }}
     >
-      {copied ? (
+      {mode === "label" ? (
+        copied ? activeLabel : idleLabel
+      ) : copied ? (
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none">
           <path
             d="M5 13l4 4L19 7"
