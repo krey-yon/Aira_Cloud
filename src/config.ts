@@ -1,9 +1,30 @@
 export const config = {
+  /**
+   * Legacy Google key — kept only as a soft fallback if Cloudflare creds are absent.
+   * Prefer CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.
+   */
   apiKey:
     process.env.AI_API_KEY ??
     process.env.GOOGLE_GENERATIVE_AI_API_KEY ??
     "",
-  defaultModel: process.env.AI_MODEL ?? "gemini-3.7-flash",
+  /**
+   * Workers AI model id, e.g. @cf/qwen/qwen3-30b-a3b-fp8
+   */
+  defaultModel:
+    process.env.AI_MODEL ??
+    process.env.CLOUD_FLARE_AI_MODEL ??
+    process.env.CLOUDFLARE_AI_MODEL ??
+    "@cf/qwen/qwen3-30b-a3b-fp8",
+  /** Cloudflare account id for Workers AI REST. */
+  cloudflareAccountId:
+    process.env.CLOUDFLARE_ACCOUNT_ID ??
+    process.env.CLOUD_ACCOUNT_ID ??
+    "",
+  /** Cloudflare API token (Workers AI). */
+  cloudflareApiToken:
+    process.env.CLOUDFLARE_API_TOKEN ??
+    process.env.CLOUDFLARE_AI_WORKER ??
+    "",
   notionToken:
     process.env.NOTION_TOKEN ??
     process.env.NOTION_API_KEY ??
@@ -82,7 +103,9 @@ export const config = {
 } as const;
 
 export function assertConfig() {
-  if (!config.apiKey) {
-    throw new Error("AI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY is required");
+  if (!config.cloudflareAccountId || !config.cloudflareApiToken) {
+    throw new Error(
+      "CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN (or CLOUDFLARE_AI_WORKER) are required",
+    );
   }
 }

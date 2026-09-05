@@ -16,10 +16,10 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@ai-sdk/google": "^4.0.61",
     "ai": "^7.0.89",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "workers-ai-provider": "^4.0.0",
     "zod": "^4.5.4"
   }
 }
