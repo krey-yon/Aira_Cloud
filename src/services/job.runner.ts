@@ -30,7 +30,7 @@ function buildUserContent(text: string, pageContext?: PageContext): string {
   lines.push(
     "",
     "Use websearch/webfetch when you need to research this page or product.",
-    "When you need a human decision, call the ask_user tool (options + optional free text).",
+    "Do not nudge with questions. Call ask_user only if truly blocked; at most 1–2 asks total (options + optional free text).",
     "Never write <ask_user> tags or JSON question blocks in your final answer — only call the tool.",
   );
   return lines.join("\n");
