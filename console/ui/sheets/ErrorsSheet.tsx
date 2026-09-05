@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import type { ConsoleNav } from "../../domain/nav";
+import { CopyButton } from "../CopyButton";
 import { Sheet } from "../Sheet";
 
 type CollectedError = {
@@ -29,6 +30,20 @@ function formatTime(at: number) {
     minute: "2-digit",
     second: "2-digit",
   });
+}
+
+function copyPayload(error: CollectedError): string {
+  return [
+    error.code || error.source || "error",
+    formatTime(error.createdAt),
+    error.message,
+    error.stack,
+    error.url,
+    error.jobId ? `job: ${error.jobId}` : null,
+    error.clientId ? `client: ${error.clientId}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function ErrorsSheet({ nav, onClose, onSelect }: Props) {
@@ -74,23 +89,22 @@ export function ErrorsSheet({ nav, onClose, onSelect }: Props) {
           <button type="button" className="btn" onClick={() => onSelect(null)}>
             ← Back to list
           </button>
-          <div className="row is-selected">
+          <div className="row is-selected log-row is-error">
             <div className="row-title">
               <span>{selected.code || selected.source || "error"}</span>
-              <span className="badge is-error">{selected.id}</span>
+              <span className="row-title-actions">
+                <span className="badge is-error">{selected.id}</span>
+                <CopyButton text={copyPayload(selected)} label="Copy error" />
+              </span>
             </div>
             <div className="row-meta">{formatTime(selected.createdAt)}</div>
-            <div className="row-body">{selected.message}</div>
+            <pre className="log-body">{selected.message}</pre>
             {(selected.url || selected.jobId || selected.clientId) && (
               <div className="row-meta">
                 {[selected.url, selected.jobId, selected.clientId].filter(Boolean).join(" · ")}
               </div>
             )}
-            {selected.stack && (
-              <pre className="row-body" style={{ whiteSpace: "pre-wrap", fontSize: 11, opacity: 0.85 }}>
-                {selected.stack}
-              </pre>
-            )}
+            {selected.stack && <pre className="log-body is-stack">{selected.stack}</pre>}
           </div>
         </div>
       ) : records.length === 0 && status === "ready" ? (
@@ -98,10 +112,18 @@ export function ErrorsSheet({ nav, onClose, onSelect }: Props) {
       ) : (
         <div className="list">
           {records.map((event) => (
-            <button key={event.id} type="button" className="row" onClick={() => onSelect(event.id)}>
+            <button
+              key={event.id}
+              type="button"
+              className="row log-row is-error"
+              onClick={() => onSelect(event.id)}
+            >
               <div className="row-title">
                 <span>{event.code || event.source || "error"}</span>
-                <span className="badge is-error">{event.source || "redis"}</span>
+                <span className="row-title-actions">
+                  <span className="badge is-error">{event.source || "redis"}</span>
+                  <CopyButton text={copyPayload(event)} label="Copy error" />
+                </span>
               </div>
               <div className="row-meta">{formatTime(event.createdAt)}</div>
               <div className="row-body">{event.message.slice(0, 180)}</div>

@@ -85,6 +85,11 @@ function App() {
       onFilter={setFilter}
       onDraft={startDraft}
       onToggleTheme={toggleTheme}
+      onLogout={() => {
+        clearToken();
+        setAuthMessage(undefined);
+        setGate("need-token");
+      }}
     />
   );
 }
