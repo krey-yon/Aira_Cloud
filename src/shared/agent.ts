@@ -14,6 +14,13 @@ export type JobToolCall = {
   result: unknown;
 };
 
+export type AgentQuestionOption = {
+  id: string;
+  label: string;
+};
+
+export type WidgetKind = "ack" | "answer" | "error" | "nudge" | "question";
+
 /** Extension → cloud */
 export type ClientToServerMessage =
   | { type: "hello"; clientId: string; token?: string }
@@ -25,7 +32,14 @@ export type ClientToServerMessage =
       skillId?: string;
       pageContext?: PageContext;
     }
-  | { type: "cancel"; jobId: string };
+  | { type: "cancel"; jobId: string }
+  | {
+      type: "question_reply";
+      jobId: string;
+      questionId: string;
+      optionId: string;
+      label?: string;
+    };
 
 /** Cloud → extension */
 export type ServerToClientMessage =
@@ -46,17 +60,17 @@ export type ServerToClientMessage =
       title: string;
       body: string;
     }
-  /** Show / update the extension floating widget */
   | {
       type: "widget";
       jobId?: string;
       title: string;
       body: string;
-      kind?: "answer" | "error" | "nudge" | "status";
-      /** Ask the extension to start Flow when presenting this message */
+      kind?: WidgetKind;
       startFlow?: boolean;
+      canvasUrl?: string;
+      questionId?: string;
+      options?: AgentQuestionOption[];
     }
-  /** Reserved for proactive watching — also surfaces on the floating widget */
   | { type: "nudge"; reason: string; message: string };
 
 export type AskHttpRequest = {
@@ -88,4 +102,12 @@ export function newJobId(): string {
 
 export function newClientId(): string {
   return `ext_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
+}
+
+export function newQuestionId(): string {
+  return `q_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
+}
+
+export function newCanvasId(): string {
+  return `cv_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
 }

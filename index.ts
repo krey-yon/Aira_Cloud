@@ -24,8 +24,12 @@ import {
   gmailStatus,
 } from "./src/services/gmail.oauth";
 import { getGmailStore } from "./src/services/gmail.store";
+import { getCanvasStore } from "./src/services/canvas.store";
+import { bindQuestionBridge, resolveQuestionReply } from "./src/services/question.bridge";
 import { getWatcherStore, type WatcherInput, type WatcherStatus } from "./src/services/watcher.store";
 import { getSkills } from "./src/skills";
+import { renderMarkdown } from "./src/shared/markdown";
+import { previewWords, shouldUseCanvas } from "./src/shared/canvas";
 
 assertConfig();
 
@@ -37,6 +41,8 @@ const agent = new AgentService();
 const scheduler = getScheduler();
 const logs = getLogRing();
 const watchers = getWatcherStore();
+const canvases = getCanvasStore();
+bindQuestionBridge(clients);
 
 logs.append({
   kind: "server",
@@ -63,8 +69,8 @@ scheduler.setExecutor(async (task) => {
       type: "widget",
       jobId: task.id,
       title: task.title,
-      body: `Running scheduled task…`,
-      kind: "status",
+      body: "Queued. Working in the background.",
+      kind: "ack",
     });
   }
 
@@ -95,12 +101,21 @@ scheduler.setExecutor(async (task) => {
       source: "scheduler",
     });
     if (task.clientId) {
+      let widgetBody = body;
+      let canvasUrl: string | undefined;
+      if (shouldUseCanvas(body, config.canvasWordCap)) {
+        const record = canvases.put({ markdown: body, title: task.title });
+        const origin = (config.publicBaseUrl.trim() || `http://localhost:${config.port}`).replace(/\/$/, "");
+        canvasUrl = `${origin}/r/${record.id}`;
+        widgetBody = previewWords(body);
+      }
       clients.send(task.clientId, {
         type: "widget",
         jobId: task.id,
         title: task.title,
-        body: body.slice(0, 1600),
+        body: widgetBody.slice(0, 1600),
         kind: "answer",
+        ...(canvasUrl ? { canvasUrl } : {}),
       });
       clients.send(task.clientId, {
         type: "notify",
@@ -253,7 +268,65 @@ function handleClientMessage(ws: ServerWebSocket<SocketData>, raw: string | Buff
     return;
   }
 
+  if (message.type === "question_reply") {
+    const ok = resolveQuestionReply({
+      questionId: message.questionId,
+      optionId: message.optionId,
+      label: message.label,
+    });
+    if (!ok) {
+      send(ws, {
+        type: "error",
+        jobId: message.jobId,
+        message: "No pending question for that id",
+      });
+    }
+    return;
+  }
+
   send(ws, { type: "error", message: `Unknown message type` });
+}
+
+function canvasPage(record: { id: string; title: string; markdown: string; createdAt: string }) {
+  const bodyHtml = renderMarkdown(record.markdown);
+  const title = record.title.replace(/</g, "&lt;");
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${title} · Aira</title>
+  <style>
+    :root { color-scheme: light dark; --bg: #0f1215; --fg: #e8eef4; --muted: #9aa7b5; --card: #181c21; --accent: #78b5ff; }
+    @media (prefers-color-scheme: light) {
+      :root { --bg: #f4f6f8; --fg: #15202b; --muted: #5b6b7a; --card: #ffffff; --accent: #2563eb; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: radial-gradient(1200px 600px at 10% -10%, #1d2a3a 0%, var(--bg) 55%); color: var(--fg); font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+    main { width: min(720px, calc(100% - 32px)); margin: 48px auto 80px; padding: 28px 28px 36px; border-radius: 18px; background: color-mix(in srgb, var(--card) 92%, transparent); box-shadow: 0 24px 60px rgba(0,0,0,.22); }
+    header { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 22px; }
+    header strong { font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); }
+    header time { color: var(--muted); font-size: 12px; }
+    h1 { margin: 0 0 18px; font-size: 1.55rem; line-height: 1.25; }
+    .md p { margin: 0 0 0.9em; }
+    .md h1, .md h2, .md h3 { margin: 1.2em 0 0.45em; line-height: 1.25; }
+    .md ul, .md ol { margin: 0 0 0.9em; padding-left: 1.25em; }
+    .md code { padding: .1em .35em; border-radius: 4px; background: color-mix(in srgb, var(--fg) 8%, transparent); font: 600 0.88em/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .md pre { padding: 12px; border-radius: 10px; overflow: auto; background: color-mix(in srgb, #000 35%, var(--card)); }
+    .md a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <strong>Aira canvas</strong>
+      <time datetime="${record.createdAt}">${record.createdAt.slice(0, 19).replace("T", " ")} UTC</time>
+    </header>
+    <h1>${title}</h1>
+    <article class="md">${bodyHtml}</article>
+  </main>
+</body>
+</html>`;
 }
 
 const server = Bun.serve<SocketData>({
@@ -261,6 +334,18 @@ const server = Bun.serve<SocketData>({
   development: process.env.NODE_ENV !== "production",
   routes: {
     "/": consoleIndex,
+    "/r/:id": {
+      GET: (req) => {
+        const id = req.params.id;
+        const record = canvases.get(id);
+        if (!record) {
+          return new Response("Canvas not found", { status: 404 });
+        }
+        return new Response(canvasPage(record), {
+          headers: { "Content-Type": "text/html; charset=utf-8" },
+        });
+      },
+    },
     "/health": {
       GET: () =>
         json({

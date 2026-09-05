@@ -31,6 +31,20 @@ export const config = {
   gmailDbPath:
     process.env.GMAIL_DB ??
     `${process.cwd()}/data/gmail.sqlite`,
+  /** SQLite path for long answer canvases opened from the extension. */
+  canvasDbPath:
+    process.env.CANVAS_DB ??
+    `${process.cwd()}/data/canvas.sqlite`,
+  /**
+   * Public origin for canvas links shown in the extension.
+   * Production default: https://aira.kreyon.in
+   */
+  publicBaseUrl:
+    process.env.PUBLIC_BASE_URL ??
+    process.env.AIRA_PUBLIC_URL ??
+    "",
+  /** Answers longer than this word count open on the canvas instead of the widget. */
+  canvasWordCap: Number(process.env.CANVAS_WORD_CAP ?? 120),
   /** Google OAuth client for Gmail send/read. */
   googleClientId: process.env.CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID ?? "",
   googleClientSecret: process.env.CLIENT_SECRET ?? process.env.GOOGLE_CLIENT_SECRET ?? "",

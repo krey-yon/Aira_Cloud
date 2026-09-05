@@ -1,7 +1,10 @@
-import type { PageContext } from "../shared/agent";
+import type { PageContext, WidgetKind } from "../shared/agent";
+import { previewWords, shouldUseCanvas } from "../shared/canvas";
+import { config } from "../config";
 import { requestContext } from "../lib/request-context";
 import type { AgentRequest } from "../types";
 import { AgentService } from "./agent.service";
+import { getCanvasStore } from "./canvas.store";
 import type { ClientRegistry } from "./client.registry";
 import type { JobRecord, JobStore } from "./job.store";
 import { getLogRing } from "./log.ring";
@@ -20,13 +23,21 @@ function buildUserContent(text: string, pageContext?: PageContext): string {
   lines.push(
     "",
     "Use websearch/webfetch when you need to research this page or product.",
+    "When you need a human decision, call ask_user with short options.",
   );
   return lines.join("\n");
+}
+
+function publicOrigin(): string {
+  const configured = config.publicBaseUrl.trim().replace(/\/$/, "");
+  if (configured) return configured;
+  return `http://localhost:${config.port}`;
 }
 
 export class JobRunner {
   private readonly queue: string[] = [];
   private readonly logs = getLogRing();
+  private readonly canvases = getCanvasStore();
   private running = false;
 
   constructor(
@@ -75,6 +86,28 @@ export class JobRunner {
       clientId: job.clientId,
       skillId: job.skillId,
       source: "runner",
+    });
+  }
+
+  private presentAnswer(job: JobRecord, content: string, title = "Aira") {
+    const body = content.trim() || "Done.";
+    let widgetBody = body;
+    let canvasUrl: string | undefined;
+    let kind: WidgetKind = "answer";
+
+    if (shouldUseCanvas(body, config.canvasWordCap)) {
+      const record = this.canvases.put({ markdown: body, title });
+      canvasUrl = `${publicOrigin()}/r/${record.id}`;
+      widgetBody = previewWords(body);
+    }
+
+    this.emit(job, {
+      type: "widget",
+      jobId: job.id,
+      title,
+      body: widgetBody.slice(0, 1600),
+      kind,
+      ...(canvasUrl ? { canvasUrl } : {}),
     });
   }
 
@@ -131,13 +164,7 @@ export class JobRunner {
       });
 
       const body = result.content.trim() || "Research finished.";
-      this.emit(job, {
-        type: "widget",
-        jobId: job.id,
-        title: "Aira",
-        body: body.slice(0, 1600),
-        kind: "answer",
-      });
+      this.presentAnswer(job, body);
       this.emit(job, {
         type: "notify",
         jobId: job.id,
