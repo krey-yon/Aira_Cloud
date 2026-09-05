@@ -3,6 +3,7 @@ import { useGmail } from "../hooks/useGmail";
 import { BrandPill } from "./BrandPill";
 import { Dock } from "./Dock";
 import { GmailCard } from "./GmailCard";
+import { LogoutButton } from "./LogoutButton";
 import { ErrorsSheet } from "./sheets/ErrorsSheet";
 import { LogsSheet } from "./sheets/LogsSheet";
 import { ScheduleSheet } from "./sheets/ScheduleSheet";
@@ -17,6 +18,7 @@ type Props = {
   onFilter: (filter: LogFilter) => void;
   onDraft: () => void;
   onToggleTheme: () => void;
+  onLogout: () => void;
 };
 
 function subtitleFor(nav: ConsoleNav, gmailEmail: string | null): string {
@@ -36,6 +38,7 @@ export function ConsoleStage({
   onFilter,
   onDraft,
   onToggleTheme,
+  onLogout,
 }: Props) {
   const active = nav.panel === "idle" ? null : nav.panel;
   const gmail = useGmail(true);
@@ -49,6 +52,7 @@ export function ConsoleStage({
       <div className="noise-overlay" aria-hidden />
 
       <BrandPill subtitle={subtitleFor(nav, gmail.status?.email ?? null)} />
+      <LogoutButton onLogout={onLogout} />
 
       {nav.panel === "idle" && (
         <div className="idle-stack">
@@ -63,7 +67,6 @@ export function ConsoleStage({
             error={gmail.error}
             busy={gmail.busy}
             onConnect={gmail.connect}
-            onDisconnect={gmail.disconnect}
           />
         </div>
       )}

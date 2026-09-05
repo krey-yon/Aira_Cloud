@@ -1,10 +1,12 @@
+import type { LogEvent } from "../../api/parse";
 import type { ConsoleNav, LogFilter } from "../../domain/nav";
 import { useLogs } from "../../hooks/useData";
+import { CopyButton } from "../CopyButton";
 import { Sheet } from "../Sheet";
 
 const FILTERS: { id: LogFilter; label: string }[] = [
   { id: "all", label: "All" },
-  { id: "jobs", label: "Jobs" },
+  { id: "jobs", label: "AI" },
   { id: "tools", label: "Tools" },
   { id: "errors", label: "Errors" },
   { id: "server", label: "Server" },
@@ -25,6 +27,34 @@ function formatTime(at: number) {
     minute: "2-digit",
     second: "2-digit",
   });
+}
+
+function toneFor(event: LogEvent): string {
+  if (event.level === "error" || event.kind === "error") return "error";
+  if (event.source === "thinking") return "thinking";
+  if (event.kind === "tool") return "tool";
+  if (event.kind === "job") return "job";
+  return "server";
+}
+
+function badgeLabel(event: LogEvent): string {
+  if (event.source === "thinking") return "thinking";
+  if (event.kind === "tool") return "tool";
+  if (event.kind === "error") return "error";
+  if (event.kind === "job") return "ai";
+  return event.kind;
+}
+
+function copyPayload(event: LogEvent): string {
+  return [
+    event.title,
+    formatTime(event.at),
+    event.body,
+    event.jobId ? `job: ${event.jobId}` : null,
+    event.source ? `source: ${event.source}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function LogsSheet({ nav, onClose, onSelect, onFilter }: Props) {
@@ -55,15 +85,18 @@ export function LogsSheet({ nav, onClose, onSelect, onFilter }: Props) {
           <button type="button" className="btn" onClick={() => onSelect(null)}>
             ← Back to list
           </button>
-          <div className="row is-selected">
+          <div className={`row is-selected log-row is-${toneFor(selected)}`}>
             <div className="row-title">
               <span>{selected.title}</span>
-              <span className={`badge${selected.level === "error" ? " is-error" : ""}`}>
-                {selected.kind}
+              <span className="row-title-actions">
+                <span className={`badge is-${toneFor(selected)}`}>{badgeLabel(selected)}</span>
+                {(selected.level === "error" || selected.kind === "error") && (
+                  <CopyButton text={copyPayload(selected)} label="Copy error" />
+                )}
               </span>
             </div>
             <div className="row-meta">{formatTime(selected.at)}</div>
-            <div className="row-body">{selected.body || "(empty)"}</div>
+            <pre className="log-body">{selected.body || "(empty)"}</pre>
             {(selected.jobId || selected.source) && (
               <div className="row-meta">
                 {[selected.jobId, selected.source, selected.clientId].filter(Boolean).join(" · ")}
@@ -79,13 +112,16 @@ export function LogsSheet({ nav, onClose, onSelect, onFilter }: Props) {
             <button
               key={event.id}
               type="button"
-              className="row"
+              className={`row log-row is-${toneFor(event)}`}
               onClick={() => onSelect(event.id)}
             >
               <div className="row-title">
                 <span>{event.title}</span>
-                <span className={`badge${event.level === "error" ? " is-error" : ""}`}>
-                  {event.kind}
+                <span className="row-title-actions">
+                  <span className={`badge is-${toneFor(event)}`}>{badgeLabel(event)}</span>
+                  {(event.level === "error" || event.kind === "error") && (
+                    <CopyButton text={copyPayload(event)} label="Copy error" />
+                  )}
                 </span>
               </div>
               <div className="row-meta">{formatTime(event.at)}</div>

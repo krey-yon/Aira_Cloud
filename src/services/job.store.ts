@@ -24,7 +24,7 @@ export type JobEvent = {
   id: string;
   jobId: string;
   at: number;
-  kind: "status" | "tool" | "answer" | "error";
+  kind: "status" | "tool" | "answer" | "error" | "thinking";
   message: string;
   payload?: unknown;
 };

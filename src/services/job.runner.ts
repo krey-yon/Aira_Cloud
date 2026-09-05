@@ -110,33 +110,57 @@ export class JobRunner {
 
   private note(
     job: JobRecord,
-    kind: "status" | "tool" | "answer" | "error",
+    kind: "status" | "tool" | "answer" | "error" | "thinking",
     message: string,
     payload?: unknown,
   ) {
     this.jobs.appendEvent(job.id, { kind, message, payload });
     const title =
       kind === "tool"
-        ? toolTitle(message)
-        : kind === "status"
-          ? `Job ${job.status === "running" ? "started" : job.status}`
-          : kind === "answer"
-            ? "Answer ready"
-            : "Job failed";
+        ? `Tool · ${toolTitle(message)}`
+        : kind === "thinking"
+          ? "Thinking"
+          : kind === "status"
+            ? `Job ${job.status === "running" ? "started" : job.status}`
+            : kind === "answer"
+              ? "Answer ready"
+              : "Job failed";
+
+    let body = message;
+    if (kind === "tool") {
+      const args =
+        payload && typeof payload === "object" && "arguments" in payload
+          ? String((payload as { arguments?: unknown }).arguments ?? "")
+          : "";
+      const result =
+        payload && typeof payload === "object" && "result" in payload
+          ? (payload as { result?: unknown }).result
+          : payload;
+      body = [
+        args ? `Args: ${args.slice(0, 400)}` : null,
+        `Result: ${summarizeToolResult(message, result)}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+    } else if (typeof payload === "string") {
+      body = payload;
+    } else if (payload != null && kind !== "thinking") {
+      try {
+        body = JSON.stringify(payload).slice(0, 500);
+      } catch {
+        body = message;
+      }
+    }
+
     this.logs.append({
       kind: kind === "tool" ? "tool" : kind === "error" ? "error" : "job",
       level: kind === "error" ? "error" : "info",
       title,
-      body:
-        typeof payload === "string"
-          ? payload
-          : kind === "tool"
-            ? summarizeToolResult(message, payload)
-            : message,
+      body: body.slice(0, 2000),
       jobId: job.id,
       clientId: job.clientId,
       skillId: job.skillId,
-      source: "runner",
+      source: kind === "thinking" ? "thinking" : "runner",
     });
   }
 
@@ -208,6 +232,9 @@ export class JobRunner {
         { clientId: job.clientId, jobId: job.id },
         () =>
           this.agent.run(request, {
+            onThinking: (text) => {
+              this.note(job, "thinking", text);
+            },
             onTools: (tools) => {
               for (const call of tools) {
                 this.note(job, "tool", call.name, {

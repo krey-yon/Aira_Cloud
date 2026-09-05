@@ -563,8 +563,9 @@ html[data-theme="light"] .glass {
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  object-fit: contain;
+  object-fit: cover;
   flex-shrink: 0;
+  box-shadow: 0 1px 0 color-mix(in oklab, #fff 18%, transparent) inset;
 }
 
 .auth-card {
@@ -697,6 +698,118 @@ html[data-theme="light"] .glass {
   font-size: 9px;
   color: var(--color-ink-500);
   word-break: break-all;
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  color: var(--color-ink-600);
+  background: color-mix(in oklab, var(--color-ink-50) 70%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-ink-900) 8%, transparent);
+  transition:
+    color 180ms var(--ease-out),
+    background 180ms var(--ease-out),
+    transform 180ms var(--ease-out),
+    border-color 180ms var(--ease-out);
+}
+
+.icon-btn:hover {
+  color: var(--color-ink-900);
+  background: color-mix(in oklab, var(--color-ink-50) 88%, transparent);
+  transform: translateY(-1px);
+}
+
+.icon-btn:active {
+  transform: translateY(0) scale(0.96);
+}
+
+.icon-btn.is-copied {
+  color: var(--color-accent-emerald);
+  border-color: color-mix(in oklab, var(--color-accent-emerald) 28%, transparent);
+}
+
+.logout-btn {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 50;
+  pointer-events: auto;
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  animation: logout-in 420ms var(--ease-out) both;
+}
+
+@keyframes logout-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.row-title-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.log-row {
+  border-left: 2px solid transparent;
+  transition: border-color 200ms var(--ease-out), background 200ms var(--ease-out);
+}
+
+.log-row.is-thinking {
+  border-left-color: color-mix(in oklab, #c4a5ff 70%, transparent);
+}
+
+.log-row.is-tool {
+  border-left-color: color-mix(in oklab, var(--color-action) 70%, transparent);
+}
+
+.log-row.is-job {
+  border-left-color: color-mix(in oklab, var(--color-accent-emerald) 55%, transparent);
+}
+
+.log-row.is-error {
+  border-left-color: color-mix(in oklab, #ff758f 75%, transparent);
+}
+
+.badge.is-thinking {
+  color: #c4a5ff;
+  background: color-mix(in oklab, #c4a5ff 14%, transparent);
+}
+
+.badge.is-tool,
+.badge.is-job {
+  color: var(--color-action);
+  background: color-mix(in oklab, var(--color-action) 14%, transparent);
+}
+
+.log-body {
+  margin: 0.45rem 0 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--color-ink-900) 4%, transparent);
+  color: var(--color-ink-800);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: min(42vh, 320px);
+  overflow: auto;
+}
+
+.log-body.is-stack {
+  opacity: 0.85;
+  font-size: 10px;
 }
 
 @media (prefers-reduced-motion: reduce) {
