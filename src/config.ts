@@ -33,6 +33,15 @@ export const config = {
     process.env.NOTION_API_KEY ??
     process.env.NOTION_PAT ??
     "",
+  /**
+   * Default parent page for new Notion pages/databases (`NOTION_PADE_ID`).
+   * Accepts a page URL, UUID, or Notion slug-id string.
+   */
+  notionParentPageId: (
+    process.env.NOTION_PADE_ID ??
+    process.env.NOTION_PAGE_ID ??
+    ""
+  ).trim(),
   notionVersion: process.env.NOTION_VERSION ?? "2026-03-11",
   /** Exa API key for webfetch + websearch (`EXA_KEY`). */
   exaApiKey: process.env.EXA_KEY ?? process.env.EXA_API_KEY ?? "",

@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+import { config } from "../config";
 import {
   extractNotionId,
   extractTitle,
@@ -60,6 +61,11 @@ function buildCover(url?: string) {
   return { type: "external", external: { url } };
 }
 
+function defaultParentPageId(): string | undefined {
+  const raw = config.notionParentPageId;
+  return raw ? extractNotionId(raw) : undefined;
+}
+
 function buildParent(input: {
   parentPageId?: string;
   parentDatabaseId?: string;
@@ -70,6 +76,14 @@ function buildParent(input: {
   }
   if (input.parentPageId) {
     return { type: "page_id", page_id: extractNotionId(input.parentPageId) };
+  }
+  // Explicit workspace request only — otherwise prefer NOTION_PADE_ID.
+  if (input.workspace === true) {
+    return { type: "workspace", workspace: true };
+  }
+  const configured = defaultParentPageId();
+  if (configured) {
+    return { type: "page_id", page_id: configured };
   }
   if (input.workspace !== false) {
     return { type: "workspace", workspace: true };
@@ -242,19 +256,22 @@ export const notionQueryDatabaseTool = tool({
 
 export const notionCreatePageTool = tool({
   description:
-    "Create a Notion page. Prefer enhanced markdown for the body. With a PAT, omit parent to create a private workspace page.",
+    "Create a Notion page under the configured Aira parent (NOTION_PADE_ID) by default. Prefer enhanced markdown for the body. Pass parentPageId/parentDatabaseId only to override; set workspace true for a private workspace page.",
   inputSchema: z.object({
     title: z.string().optional().describe("Page title. If omitted, the first # heading in markdown is used."),
     markdown: z
       .string()
       .optional()
       .describe("Enhanced Notion markdown for the page body. Do not also send children."),
-    parentPageId: z.string().optional(),
+    parentPageId: z
+      .string()
+      .optional()
+      .describe("Override parent page. Omit to use NOTION_PADE_ID."),
     parentDatabaseId: z.string().optional(),
     workspace: z
       .boolean()
       .optional()
-      .describe("Create a private workspace-level page. Default true when no parent is given."),
+      .describe("If true, create a private workspace-level page instead of using NOTION_PADE_ID."),
     icon: iconSchema,
     coverUrl: z.string().optional().describe("External cover image URL"),
     properties: z
@@ -472,11 +489,17 @@ export const notionWritePageTool = tool({
 
 export const notionCreateDatabaseTool = tool({
   description:
-    "Create a Notion database under a page (or as a private workspace database with a PAT). Exactly one title property is required.",
+    "Create a Notion database under the configured Aira parent (NOTION_PADE_ID) by default. Exactly one title property is required. Pass parentPageId to override; set workspace true for a private workspace database.",
   inputSchema: z.object({
     title: z.string(),
-    parentPageId: z.string().optional(),
-    workspace: z.boolean().optional(),
+    parentPageId: z
+      .string()
+      .optional()
+      .describe("Override parent page. Omit to use NOTION_PADE_ID."),
+    workspace: z
+      .boolean()
+      .optional()
+      .describe("If true, create a private workspace database instead of using NOTION_PADE_ID."),
     properties: z
       .record(z.string(), z.unknown())
       .describe(
@@ -485,9 +508,10 @@ export const notionCreateDatabaseTool = tool({
   }),
   execute: async (input) => {
     try {
-      const parent = input.parentPageId
-        ? { type: "page_id", page_id: extractNotionId(input.parentPageId) }
-        : { type: "workspace", workspace: true };
+      const parent = buildParent({
+        parentPageId: input.parentPageId,
+        workspace: input.workspace,
+      });
 
       const database = await notionRequest<Record<string, unknown>>("/databases", {
         method: "POST",

@@ -12,6 +12,7 @@ This assistant authenticates with a server-side token in `NOTION_TOKEN`.
 - If a tool returns 401, tell the user to create a **personal access token** and set `NOTION_TOKEN` on the VM. Do not invent a token.
 - If a tool returns 403/404, the token cannot see that page. With a PAT this means the user also cannot see it. With an internal integration, the page was never shared with the connection.
 - Never print the token.
+- Default parent for new pages and databases is the server env `NOTION_PADE_ID`. Omit `parentPageId` so content lands there. Only pass another parent when the user names a specific page or database.
 
 Recommended setup for this cloud assistant: **personal access token (PAT)**. It acts as the user, does not need pages shared with a bot, and can create private workspace pages. OAuth is the later path if the browser extension must connect other people's workspaces.
 
@@ -45,7 +46,7 @@ IDs can be UUIDs or pasted Notion URLs.
 ### Create a good page
 
 1. Search for an existing home, inbox, or matching page. Reuse it when that is clearly what they meant.
-2. Pick a parent: existing page, database row, or omit parent to create a private workspace page (PAT only).
+2. Parent: omit `parentPageId` to create under `NOTION_PADE_ID`. Use another page/database id only when the user asked for that destination. Set `workspace: true` only for a private workspace page.
 3. Give every page an emoji or native icon and a specific title.
 4. Write the body in **enhanced markdown** (see below). One H1 that matches the title. Short intro. Then scan-friendly sections.
 5. Return the URL.
