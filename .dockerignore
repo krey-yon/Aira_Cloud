@@ -1,0 +1,12 @@
+.git
+.cursor
+.gitignore
+node_modules
+data
+dist
+.env
+.env.*
+!.env.example
+README.md
+CLAUDE.md
+**/*.test.ts

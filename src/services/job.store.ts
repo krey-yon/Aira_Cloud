@@ -3,8 +3,8 @@ import type {
   JobStatus,
   JobToolCall,
   PageContext,
-} from "../../../shared/agent";
-import { newJobId } from "../../../shared/agent";
+} from "../shared/agent";
+import { newJobId } from "../shared/agent";
 
 export type JobRecord = {
   id: string;

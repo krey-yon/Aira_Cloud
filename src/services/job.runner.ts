@@ -1,4 +1,5 @@
-import type { PageContext } from "../../../shared/agent";
+import type { PageContext } from "../shared/agent";
+import { requestContext } from "../lib/request-context";
 import type { AgentRequest } from "../types";
 import { AgentService } from "./agent.service";
 import type { ClientRegistry } from "./client.registry";
@@ -71,7 +72,10 @@ export class JobRunner {
         ],
       };
 
-      const result = await this.agent.run(request);
+      const result = await requestContext.run(
+        { clientId: job.clientId, jobId: job.id },
+        () => this.agent.run(request),
+      );
 
       if (result.toolCalls?.length) {
         for (const call of result.toolCalls) {
@@ -99,13 +103,19 @@ export class JobRunner {
         skillId: result.skillId,
       });
 
-      const preview =
-        result.content.trim().slice(0, 180) || "Research finished.";
+      const body = result.content.trim() || "Research finished.";
+      this.emit(job, {
+        type: "widget",
+        jobId: job.id,
+        title: "Aira",
+        body: body.slice(0, 1600),
+        kind: "answer",
+      });
       this.emit(job, {
         type: "notify",
         jobId: job.id,
         title: "Aira finished",
-        body: preview,
+        body: body.slice(0, 180),
       });
 
       this.emit(job, { type: "status", jobId: job.id, status: "done" });
@@ -113,6 +123,13 @@ export class JobRunner {
       const message = err instanceof Error ? err.message : String(err);
       this.jobs.update(job.id, { status: "error", error: message });
       this.emit(job, { type: "error", jobId: job.id, message });
+      this.emit(job, {
+        type: "widget",
+        jobId: job.id,
+        title: "Aira failed",
+        body: message.slice(0, 800),
+        kind: "error",
+      });
       this.emit(job, {
         type: "notify",
         jobId: job.id,

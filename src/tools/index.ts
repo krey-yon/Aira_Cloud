@@ -11,6 +11,11 @@ import {
   notionWhoamiTool,
   notionWritePageTool,
 } from "./notion.tools";
+import {
+  cancelScheduledTaskTool,
+  listScheduledTasksTool,
+  scheduleTaskTool,
+} from "./schedule.tools";
 import { webfetchTool } from "./webfetch.tool";
 import { websearchTool } from "./websearch.tool";
 import type { AppTools } from "./types";
@@ -22,6 +27,9 @@ export const tools = {
   email_verify: emailVerifyTool,
   webfetch: webfetchTool,
   websearch: websearchTool,
+  schedule_task: scheduleTaskTool,
+  list_scheduled_tasks: listScheduledTasksTool,
+  cancel_scheduled_task: cancelScheduledTaskTool,
   notion_whoami: notionWhoamiTool,
   notion_search: notionSearchTool,
   notion_read_page: notionReadPageTool,

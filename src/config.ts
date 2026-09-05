@@ -19,6 +19,12 @@ export const config = {
    * When empty, auth is skipped (local dev only).
    */
   cloudToken: process.env.CLOUD_TOKEN ?? "",
+  /** SQLite path for durable scheduled tasks. */
+  schedulerDbPath:
+    process.env.SCHEDULER_DB ??
+    `${process.cwd()}/data/scheduler.sqlite`,
+  /** How often to poll for due tasks (ms). */
+  schedulerTickMs: Number(process.env.SCHEDULER_TICK_MS ?? 1000),
 } as const;
 
 export function assertConfig() {

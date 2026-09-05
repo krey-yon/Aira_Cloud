@@ -4,9 +4,12 @@ import type {
   AskHttpRequest,
   ClientToServerMessage,
   ServerToClientMessage,
-} from "../shared/agent";
-import { newClientId, newJobId } from "../shared/agent";
+} from "./src/shared/agent";
+import { newClientId, newJobId } from "./src/shared/agent";
 import { assertConfig, config } from "./src/config";
+import { requestContext } from "./src/lib/request-context";
+import { getScheduler, type ScheduleInput } from "./src/scheduler";
+import { AgentService } from "./src/services/agent.service";
 import { ClientRegistry, type SocketData } from "./src/services/client.registry";
 import { JobRunner } from "./src/services/job.runner";
 import { JobStore } from "./src/services/job.store";
@@ -17,6 +20,69 @@ assertConfig();
 const jobs = new JobStore();
 const clients = new ClientRegistry();
 const runner = new JobRunner(jobs, clients);
+const agent = new AgentService();
+const scheduler = getScheduler();
+
+scheduler.setExecutor(async (task) => {
+  if (task.clientId) {
+    clients.send(task.clientId, {
+      type: "widget",
+      jobId: task.id,
+      title: task.title,
+      body: `Running scheduled task…`,
+      kind: "status",
+    });
+  }
+
+  try {
+    const result = await requestContext.run(
+      { clientId: task.clientId, jobId: task.id },
+      () =>
+        agent.run({
+          skillId: task.skillId,
+          messages: [
+            {
+              role: "user",
+              content: [`Scheduled task: ${task.title}`, "", task.prompt].join("\n"),
+            },
+          ],
+        }),
+    );
+
+    const body = result.content.trim() || `Finished: ${task.title}`;
+    if (task.clientId) {
+      clients.send(task.clientId, {
+        type: "widget",
+        jobId: task.id,
+        title: task.title,
+        body: body.slice(0, 1600),
+        kind: "answer",
+      });
+      clients.send(task.clientId, {
+        type: "notify",
+        jobId: task.id,
+        title: task.title,
+        body: body.slice(0, 180),
+      });
+    }
+
+    return { result: body };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (task.clientId) {
+      clients.send(task.clientId, {
+        type: "widget",
+        jobId: task.id,
+        title: `${task.title} failed`,
+        body: message.slice(0, 800),
+        kind: "error",
+      });
+    }
+    return { error: message };
+  }
+});
+
+scheduler.start();
 
 function json(data: unknown, status = 200) {
   return Response.json(data, {
@@ -24,7 +90,7 @@ function json(data: unknown, status = 200) {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "Authorization, Content-Type",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
     },
   });
 }
@@ -102,7 +168,6 @@ function handleClientMessage(ws: ServerWebSocket<SocketData>, raw: string | Buff
   }
 
   if (message.type === "context") {
-    // Reserved for proactive watching — acknowledge by no-op for now.
     return;
   }
 
@@ -147,6 +212,7 @@ const server = Bun.serve<SocketData>({
           ok: true,
           service: "aira-on-cloud",
           authRequired: Boolean(config.cloudToken),
+          scheduler: true,
         }),
     },
     "/v1/skills": {
@@ -190,6 +256,69 @@ const server = Bun.serve<SocketData>({
         return json(jobs.toHttp(job));
       },
     },
+    "/v1/schedule": {
+      GET: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const url = new URL(req.url);
+        const status = url.searchParams.get("status") as
+          | "pending"
+          | "running"
+          | "done"
+          | "cancelled"
+          | "error"
+          | null;
+        const clientId = url.searchParams.get("clientId") ?? undefined;
+        const limit = Number(url.searchParams.get("limit") ?? 50);
+        return json({
+          tasks: scheduler.list({
+            status: status ?? undefined,
+            clientId,
+            limit: Number.isFinite(limit) ? limit : 50,
+          }),
+        });
+      },
+      POST: async (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        let body: ScheduleInput;
+        try {
+          body = (await req.json()) as ScheduleInput;
+        } catch {
+          return json({ error: "Invalid JSON body" }, 400);
+        }
+        try {
+          const task = scheduler.schedule(body);
+          return json({ task }, 201);
+        } catch (err) {
+          return json(
+            { error: err instanceof Error ? err.message : String(err) },
+            400,
+          );
+        }
+      },
+    },
+    "/v1/schedule/:id": {
+      GET: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const id = (req as Request & { params: { id: string } }).params.id;
+        const task = scheduler.get(id);
+        if (!task) return json({ error: "Not found" }, 404);
+        return json({ task });
+      },
+      DELETE: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const id = (req as Request & { params: { id: string } }).params.id;
+        try {
+          const task = scheduler.cancel(id);
+          if (!task) return json({ error: "Not found" }, 404);
+          return json({ task });
+        } catch (err) {
+          return json(
+            { error: err instanceof Error ? err.message : String(err) },
+            400,
+          );
+        }
+      },
+    },
     "/v1/ws": {
       GET: (req, server) => {
         const token = extractBearer(req);
@@ -208,7 +337,6 @@ const server = Bun.serve<SocketData>({
   },
   websocket: {
     open(ws) {
-      // Wait for hello when auth is required; otherwise attach a temp client id.
       if (ws.data.authed && !config.cloudToken) {
         clients.attach(newClientId(), ws);
       }
@@ -227,7 +355,7 @@ const server = Bun.serve<SocketData>({
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Headers": "Authorization, Content-Type",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
         },
       });
     }
@@ -236,7 +364,7 @@ const server = Bun.serve<SocketData>({
 });
 
 console.log(
-  `Aira cloud agent listening on http://localhost:${server.port} (ws /v1/ws)${
+  `Aira cloud agent listening on http://localhost:${server.port} (ws /v1/ws, scheduler on)${
     config.cloudToken ? "" : " — CLOUD_TOKEN unset, auth disabled"
   }`,
 );

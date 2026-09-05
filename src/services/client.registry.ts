@@ -1,5 +1,5 @@
 import type { ServerWebSocket } from "bun";
-import type { ServerToClientMessage } from "../../../shared/agent";
+import type { ServerToClientMessage } from "../shared/agent";
 
 export type SocketData = {
   clientId?: string;
