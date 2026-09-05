@@ -3,6 +3,7 @@ import { api } from "../../api/client";
 import { parseWatcher, type WatcherView } from "../../api/parse";
 import type { ConsoleNav } from "../../domain/nav";
 import { useWatchers } from "../../hooks/useData";
+import { formatRelativeTime } from "../../lib/relative-time";
 import { Sheet } from "../Sheet";
 
 type Props = {
@@ -24,12 +25,7 @@ type QueueEvent = {
 
 function formatChecked(at?: number) {
   if (!at) return "not checked yet";
-  return new Date(at).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return formatRelativeTime(at);
 }
 
 function formatInterval(minutes?: number) {
@@ -309,7 +305,7 @@ export function WatchersSheet({ nav, onClose, onSelect, onDraft }: Props) {
                   <span className={`badge is-${event.status}`}>{event.status}</span>
                 </div>
                 <div className="row-meta">
-                  {new Date(event.createdAt).toLocaleString()} · email {event.emailSent ? "✓" : "—"} · widget{" "}
+                  {formatRelativeTime(event.createdAt)} · email {event.emailSent ? "✓" : "—"} · widget{" "}
                   {event.widgetSent ? "✓" : "—"}
                 </div>
                 <div className="row-body">{event.body.slice(0, 160)}</div>

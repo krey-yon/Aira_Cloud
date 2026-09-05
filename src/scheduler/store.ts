@@ -4,6 +4,27 @@ import { dirname } from "node:path";
 
 import type { ScheduledTask, ScheduledTaskStatus } from "./types";
 
+export type TaskStoreApi = {
+  insert(task: ScheduledTask): Promise<ScheduledTask>;
+  get(id: string): Promise<ScheduledTask | undefined>;
+  list(opts?: {
+    status?: ScheduledTaskStatus;
+    clientId?: string;
+    limit?: number;
+  }): Promise<ScheduledTask[]>;
+  due(nowIso: string, limit?: number): Promise<ScheduledTask[]>;
+  update(
+    id: string,
+    patch: Partial<
+      Pick<
+        ScheduledTask,
+        "status" | "result" | "error" | "runAt" | "title" | "prompt" | "metadata"
+      >
+    >,
+  ): Promise<ScheduledTask | undefined>;
+  claim(id: string): Promise<ScheduledTask | undefined>;
+};
+
 function rowToTask(row: Record<string, unknown>): ScheduledTask {
   return {
     id: String(row.id),
@@ -17,11 +38,14 @@ function rowToTask(row: Record<string, unknown>): ScheduledTask {
     updatedAt: String(row.updated_at),
     result: row.result != null ? String(row.result) : undefined,
     error: row.error != null ? String(row.error) : undefined,
-    metadata: row.metadata ? (JSON.parse(String(row.metadata)) as Record<string, unknown>) : undefined,
+    metadata: row.metadata
+      ? (JSON.parse(String(row.metadata)) as Record<string, unknown>)
+      : undefined,
   };
 }
 
-export class TaskStore {
+/** SQLite-backed store for tests and local runs without Redis. */
+export class SqliteTaskStore implements TaskStoreApi {
   private readonly db: Database;
 
   constructor(path: string) {
@@ -48,7 +72,7 @@ export class TaskStore {
     `);
   }
 
-  insert(task: ScheduledTask): ScheduledTask {
+  insert(task: ScheduledTask): Promise<ScheduledTask> {
     this.db
       .query(
         `INSERT INTO scheduled_tasks
@@ -70,17 +94,21 @@ export class TaskStore {
         $error: task.error ?? null,
         $metadata: task.metadata ? JSON.stringify(task.metadata) : null,
       });
-    return task;
+    return Promise.resolve(task);
   }
 
-  get(id: string): ScheduledTask | undefined {
+  get(id: string): Promise<ScheduledTask | undefined> {
     const row = this.db.query(`SELECT * FROM scheduled_tasks WHERE id = ?`).get(id) as
       | Record<string, unknown>
       | null;
-    return row ? rowToTask(row) : undefined;
+    return Promise.resolve(row ? rowToTask(row) : undefined);
   }
 
-  list(opts?: { status?: ScheduledTaskStatus; clientId?: string; limit?: number }): ScheduledTask[] {
+  list(opts?: {
+    status?: ScheduledTaskStatus;
+    clientId?: string;
+    limit?: number;
+  }): Promise<ScheduledTask[]> {
     const clauses: string[] = [];
     const params: unknown[] = [];
     if (opts?.status) {
@@ -98,11 +126,10 @@ export class TaskStore {
         `SELECT * FROM scheduled_tasks ${where} ORDER BY run_at ASC LIMIT ${limit}`,
       )
       .all(...params) as Record<string, unknown>[];
-    return rows.map(rowToTask);
+    return Promise.resolve(rows.map(rowToTask));
   }
 
-  /** Pending tasks whose run_at is <= nowIso */
-  due(nowIso: string, limit = 20): ScheduledTask[] {
+  due(nowIso: string, limit = 20): Promise<ScheduledTask[]> {
     const rows = this.db
       .query(
         `SELECT * FROM scheduled_tasks
@@ -111,16 +138,16 @@ export class TaskStore {
          LIMIT ?`,
       )
       .all(nowIso, limit) as Record<string, unknown>[];
-    return rows.map(rowToTask);
+    return Promise.resolve(rows.map(rowToTask));
   }
 
-  update(
+  async update(
     id: string,
     patch: Partial<
       Pick<ScheduledTask, "status" | "result" | "error" | "runAt" | "title" | "prompt" | "metadata">
     >,
-  ): ScheduledTask | undefined {
-    const current = this.get(id);
+  ): Promise<ScheduledTask | undefined> {
+    const current = await this.get(id);
     if (!current) return undefined;
     const next: ScheduledTask = {
       ...current,
@@ -154,8 +181,7 @@ export class TaskStore {
     return next;
   }
 
-  /** Atomically claim a pending due task for execution. */
-  claim(id: string): ScheduledTask | undefined {
+  claim(id: string): Promise<ScheduledTask | undefined> {
     const updatedAt = new Date().toISOString();
     const result = this.db
       .query(
@@ -165,6 +191,8 @@ export class TaskStore {
          RETURNING *`,
       )
       .get({ $id: id, $updated_at: updatedAt }) as Record<string, unknown> | null;
-    return result ? rowToTask(result) : undefined;
+    return Promise.resolve(result ? rowToTask(result) : undefined);
   }
 }
+
+export const TaskStore = SqliteTaskStore;

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../../api/client";
 import type { ConsoleNav } from "../../domain/nav";
 import { useSchedule } from "../../hooks/useData";
+import { formatRelativeTime } from "../../lib/relative-time";
 import { Sheet } from "../Sheet";
 
 type Props = {
@@ -43,7 +44,7 @@ export function ScheduleSheet({ nav, onClose, onSelect }: Props) {
               <span>{selected.title}</span>
               <span className={`badge is-${selected.status}`}>{selected.status}</span>
             </div>
-            <div className="row-meta">runs {selected.runAt}</div>
+            <div className="row-meta">runs {formatRelativeTime(selected.runAt)}</div>
             <div className="row-body">{selected.prompt}</div>
             {selected.result && <div className="row-body">{selected.result}</div>}
             {selected.error && <div className="row-body">{selected.error}</div>}
@@ -76,7 +77,7 @@ export function ScheduleSheet({ nav, onClose, onSelect }: Props) {
                 <span>{task.title}</span>
                 <span className={`badge is-${task.status}`}>{task.status}</span>
               </div>
-              <div className="row-meta">{task.runAt}</div>
+              <div className="row-meta">{formatRelativeTime(task.runAt)}</div>
               <div className="row-body">{task.prompt.slice(0, 140)}</div>
             </button>
           ))}

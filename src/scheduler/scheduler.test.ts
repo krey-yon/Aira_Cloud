@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { SchedulerService } from "./scheduler";
-import { TaskStore } from "./store";
+import { SqliteTaskStore } from "./store";
 import { resolveRunAt } from "./types";
 
 describe("resolveRunAt", () => {
@@ -42,23 +42,27 @@ describe("SchedulerService", () => {
   function makeScheduler() {
     const dir = mkdtempSync(join(tmpdir(), "aira-sched-"));
     dirs.push(dir);
-    return new SchedulerService(new TaskStore(join(dir, "scheduler.sqlite")));
+    return new SchedulerService(new SqliteTaskStore(join(dir, "scheduler.sqlite")));
   }
 
-  test("schedules, lists, and cancels a pending task", () => {
+  test("schedules, lists, and cancels a pending task", async () => {
     const scheduler = makeScheduler();
-    const task = scheduler.schedule({
+    const task = await scheduler.schedule({
       title: "Monday email",
       prompt: "Email alice@example.com about the launch",
       delayMinutes: 60,
       clientId: "ext_test",
     });
     expect(task.status).toBe("pending");
-    expect(scheduler.list({ status: "pending" }).map((t) => t.id)).toContain(task.id);
+    expect((await scheduler.list({ status: "pending" })).map((t) => t.id)).toContain(
+      task.id,
+    );
 
-    const cancelled = scheduler.cancel(task.id);
+    const cancelled = await scheduler.cancel(task.id);
     expect(cancelled?.status).toBe("cancelled");
-    expect(scheduler.list({ status: "pending" }).find((t) => t.id === task.id)).toBeUndefined();
+    expect(
+      (await scheduler.list({ status: "pending" })).find((t) => t.id === task.id),
+    ).toBeUndefined();
   });
 
   test("fires a due task through the executor", async () => {
@@ -69,7 +73,7 @@ describe("SchedulerService", () => {
       return { result: "ok" };
     });
 
-    const task = scheduler.schedule({
+    const task = await scheduler.schedule({
       title: "Soon",
       prompt: "Say hello",
       delayMs: 1,
@@ -78,7 +82,7 @@ describe("SchedulerService", () => {
     await Bun.sleep(5);
     await scheduler.tick();
 
-    const done = scheduler.get(task.id);
+    const done = await scheduler.get(task.id);
     expect(ran).toBe("Say hello");
     expect(done?.status).toBe("done");
     expect(done?.result).toBe("ok");

@@ -1,5 +1,6 @@
 import { config } from "../config";
-import { TaskStore } from "./store";
+import { RedisTaskStore } from "./redis-store";
+import { SqliteTaskStore, type TaskStoreApi } from "./store";
 import {
   newTaskId,
   resolveRunAt,
@@ -13,18 +14,23 @@ export type TaskExecutor = (task: ScheduledTask) => Promise<{
   error?: string;
 }>;
 
+function createDefaultStore(): TaskStoreApi {
+  if (config.redisUrl) return new RedisTaskStore();
+  return new SqliteTaskStore(config.schedulerDbPath);
+}
+
 export class SchedulerService {
   private timer: ReturnType<typeof setInterval> | null = null;
   private ticking = false;
   private executor: TaskExecutor | null = null;
 
-  constructor(private readonly store = new TaskStore(config.schedulerDbPath)) {}
+  constructor(private readonly store: TaskStoreApi = createDefaultStore()) {}
 
   setExecutor(executor: TaskExecutor) {
     this.executor = executor;
   }
 
-  schedule(input: ScheduleInput): ScheduledTask {
+  async schedule(input: ScheduleInput): Promise<ScheduledTask> {
     const title = input.title?.trim();
     const prompt = input.prompt?.trim();
     if (!title) throw new Error("title is required");
@@ -47,7 +53,7 @@ export class SchedulerService {
     return this.store.insert(task);
   }
 
-  get(id: string): ScheduledTask | undefined {
+  get(id: string): Promise<ScheduledTask | undefined> {
     return this.store.get(id);
   }
 
@@ -55,8 +61,8 @@ export class SchedulerService {
     return this.store.list(opts);
   }
 
-  cancel(id: string): ScheduledTask | undefined {
-    const task = this.store.get(id);
+  async cancel(id: string): Promise<ScheduledTask | undefined> {
+    const task = await this.store.get(id);
     if (!task) return undefined;
     if (task.status !== "pending") {
       throw new Error(`Cannot cancel task in status ${task.status}`);
@@ -64,14 +70,11 @@ export class SchedulerService {
     return this.store.update(id, { status: "cancelled" });
   }
 
-  /** Start the poll loop (safe to call once). */
   start(intervalMs = config.schedulerTickMs) {
     if (this.timer) return;
     this.timer = setInterval(() => {
       void this.tick();
     }, intervalMs);
-    // Don't keep the process alive solely for the timer in tests if needed —
-    // in server mode we always want it.
     if (typeof this.timer === "object" && "unref" in this.timer) {
       // Keep referenced so Coolify process stays scheduled.
     }
@@ -90,7 +93,7 @@ export class SchedulerService {
     this.ticking = true;
     try {
       const nowIso = new Date().toISOString();
-      const due = this.store.due(nowIso);
+      const due = await this.store.due(nowIso);
       for (const task of due) {
         await this.runOne(task.id);
       }
@@ -100,11 +103,11 @@ export class SchedulerService {
   }
 
   private async runOne(id: string) {
-    const claimed = this.store.claim(id);
+    const claimed = await this.store.claim(id);
     if (!claimed) return;
 
     if (!this.executor) {
-      this.store.update(id, {
+      await this.store.update(id, {
         status: "error",
         error: "No task executor configured",
       });
@@ -114,21 +117,21 @@ export class SchedulerService {
     try {
       const outcome = await this.executor(claimed);
       if (outcome.error) {
-        this.store.update(id, {
+        await this.store.update(id, {
           status: "error",
           error: outcome.error,
           result: outcome.result,
         });
         return;
       }
-      this.store.update(id, {
+      await this.store.update(id, {
         status: "done",
         result: outcome.result,
         error: undefined,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.store.update(id, { status: "error", error: message });
+      await this.store.update(id, { status: "error", error: message });
     }
   }
 }

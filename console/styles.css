@@ -253,20 +253,32 @@ html[data-theme="light"] .glass {
   place-items: center;
   border-radius: 11px;
   color: var(--color-ink-600);
-  transition: background 160ms ease, color 160ms ease, transform 120ms ease;
+  border: 1px solid transparent;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    transform 120ms ease,
+    box-shadow 160ms ease;
 }
 
 .dock-btn:hover {
   color: var(--color-ink-900);
-  background: color-mix(in oklab, var(--color-ink-900) 7%, transparent);
+  background: color-mix(in oklab, var(--color-ink-900) 6%, transparent);
 }
 
 .dock-btn:active { transform: scale(0.92); }
 
+.dock-btn:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--color-action) 70%, white);
+  outline-offset: 2px;
+}
+
 .dock-btn.is-active {
   color: var(--color-action);
-  background: color-mix(in oklab, var(--color-action) 15%, transparent);
-  border: 1px solid color-mix(in oklab, var(--color-action) 25%, transparent);
+  background: color-mix(in oklab, var(--color-action) 12%, transparent);
+  border-color: color-mix(in oklab, var(--color-action) 28%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 8%, transparent);
 }
 
 .dock-divider {
@@ -327,9 +339,10 @@ html[data-theme="light"] .glass {
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
-  border-radius: 22px;
+  border-radius: 20px;
   overflow: hidden;
   animation: panel-in 0.35s var(--ease-out);
+  border-color: color-mix(in oklab, var(--color-ink-900) 7%, transparent);
 }
 
 @keyframes panel-in {
@@ -347,26 +360,71 @@ html[data-theme="light"] .glass {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 1rem 1rem 0.75rem;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-ink-900) 8%, transparent);
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-ink-900) 6%, transparent);
+}
+
+.sheet-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.sheet-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
 }
 
 .sheet-header h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--color-ink-950);
+}
+
+.sheet-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.sheet-action {
+  padding: 0.35rem 0.65rem;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  color: var(--color-ink-700);
+  background: color-mix(in oklab, var(--color-ink-900) 5%, transparent);
+}
+
+.sheet-action:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--color-ink-900) 9%, transparent);
+  color: var(--color-ink-900);
+}
+
+.sheet-action.is-copied {
+  color: var(--color-accent-emerald);
 }
 
 .sheet-body {
   flex: 1;
   overflow: auto;
-  padding: 0.75rem 1rem 1rem;
+  padding: 0.75rem 1.25rem 1.25rem;
 }
 
 .sheet-close {
+  display: grid;
+  place-items: center;
   height: 1.75rem;
   width: 1.75rem;
+  min-height: 28px;
+  min-width: 28px;
   border-radius: 8px;
   color: var(--color-ink-500);
 }
@@ -374,6 +432,11 @@ html[data-theme="light"] .glass {
 .sheet-close:hover {
   background: color-mix(in oklab, var(--color-ink-900) 7%, transparent);
   color: var(--color-ink-900);
+}
+
+.sheet-close:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--color-action) 70%, white);
+  outline-offset: 2px;
 }
 
 .filters {
@@ -400,26 +463,31 @@ html[data-theme="light"] .glass {
 .list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.25rem;
 }
 
 .row {
   text-align: left;
   width: 100%;
-  border-radius: 12px;
-  padding: 0.75rem;
-  background: color-mix(in oklab, var(--color-ink-900) 4%, transparent);
+  border-radius: 10px;
+  padding: 0.625rem 0.75rem;
+  background: transparent;
   border: 1px solid transparent;
   transition: background 140ms ease, border-color 140ms ease;
 }
 
 .row:hover {
-  background: color-mix(in oklab, var(--color-ink-900) 7%, transparent);
+  background: color-mix(in oklab, var(--color-ink-900) 5%, transparent);
+}
+
+.row:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--color-action) 55%, white);
+  outline-offset: 1px;
 }
 
 .row.is-selected {
-  border-color: color-mix(in oklab, var(--color-action) 35%, transparent);
-  background: color-mix(in oklab, var(--color-action) 8%, transparent);
+  border-color: color-mix(in oklab, var(--color-action) 28%, transparent);
+  background: color-mix(in oklab, var(--color-action) 7%, transparent);
 }
 
 .row-title {
@@ -429,35 +497,61 @@ html[data-theme="light"] .glass {
   gap: 0.5rem;
   font-size: 12px;
   font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+}
+
+.row-title > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .row-meta {
-  margin-top: 0.35rem;
+  margin-top: 0.2rem;
   font-family: var(--font-mono);
   font-size: 9px;
   color: var(--color-ink-500);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  line-height: 1.3;
 }
 
 .row-body {
-  margin-top: 0.4rem;
+  margin-top: 0.25rem;
   font-size: 12px;
   color: var(--color-ink-700);
-  line-height: 1.45;
+  line-height: 1.4;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
+.log-row .row-body {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-ink-700);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+}
+
 .badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 1.25rem;
   border-radius: 999px;
-  padding: 0.1rem 0.4rem;
+  padding: 0 0.4rem;
   font-size: 9px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background: color-mix(in oklab, var(--color-ink-900) 8%, transparent);
+  background: color-mix(in oklab, var(--color-ink-900) 7%, transparent);
   color: var(--color-ink-600);
+  line-height: 1;
 }
 
 .badge.is-error { color: #ff758f; background: color-mix(in oklab, #ff758f 14%, transparent); }
@@ -465,15 +559,17 @@ html[data-theme="light"] .glass {
 .badge.is-done { color: var(--color-accent-emerald); background: color-mix(in oklab, var(--color-accent-emerald) 14%, transparent); }
 
 .empty {
-  padding: 2rem 0.5rem;
+  padding: 2.5rem 0.5rem;
   text-align: center;
   color: var(--color-ink-500);
   font-size: 12px;
+  line-height: 1.45;
 }
 
 .status-line {
-  margin-bottom: 0.75rem;
+  margin: 0 0 0.625rem;
   font-size: 11px;
+  line-height: 1.4;
   color: var(--color-ink-500);
 }
 
@@ -793,10 +889,11 @@ html[data-theme="light"] .glass {
 }
 
 .log-body {
-  margin: 0.45rem 0 0;
-  padding: 0.65rem 0.75rem;
-  border-radius: 12px;
-  background: color-mix(in oklab, var(--color-ink-900) 4%, transparent);
+  margin: 0.375rem 0 0;
+  padding: 0.625rem 0.75rem;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--color-ink-900) 3.5%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-ink-900) 5%, transparent);
   color: var(--color-ink-800);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -808,8 +905,9 @@ html[data-theme="light"] .glass {
 }
 
 .log-body.is-stack {
-  opacity: 0.85;
+  opacity: 0.82;
   font-size: 10px;
+  max-height: min(36vh, 280px);
 }
 
 @media (prefers-reduced-motion: reduce) {

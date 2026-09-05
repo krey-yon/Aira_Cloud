@@ -36,6 +36,9 @@ export const config = {
   notionVersion: process.env.NOTION_VERSION ?? "2026-03-11",
   /** Exa API key for webfetch + websearch (`EXA_KEY`). */
   exaApiKey: process.env.EXA_KEY ?? process.env.EXA_API_KEY ?? "",
+  /** Firecrawl API key for webfetch fallback when Exa fails. */
+  firecrawlApiKey:
+    process.env.FIRECRAWL_API_KEY ?? process.env.FIRECRAWL_KEY ?? "",
   /** HTTP/WS listen port for the cloud agent. */
   port: Number(process.env.PORT ?? 8787),
   /**

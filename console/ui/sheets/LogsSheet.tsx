@@ -61,9 +61,22 @@ export function LogsSheet({ nav, onClose, onSelect, onFilter }: Props) {
   const state = useLogs(true, nav.filter);
   const events = state.status === "ready" ? state.data : [];
   const selected = events.find((e) => e.id === nav.selectedId);
+  const copyAllText = events.map(copyPayload).join("\n\n---\n\n");
 
   return (
-    <Sheet title="Agent log" onClose={onClose}>
+    <Sheet
+      title="Agent log"
+      eyebrow="Live"
+      onClose={onClose}
+      actions={
+        <CopyButton
+          text={copyAllText}
+          label="Copy all"
+          mode="label"
+          disabled={events.length === 0}
+        />
+      }
+    >
       <div className="filters">
         {FILTERS.map((f) => (
           <button
@@ -90,9 +103,7 @@ export function LogsSheet({ nav, onClose, onSelect, onFilter }: Props) {
               <span>{selected.title}</span>
               <span className="row-title-actions">
                 <span className={`badge is-${toneFor(selected)}`}>{badgeLabel(selected)}</span>
-                {(selected.level === "error" || selected.kind === "error") && (
-                  <CopyButton text={copyPayload(selected)} label="Copy error" />
-                )}
+                <CopyButton text={copyPayload(selected)} label="Copy log" />
               </span>
             </div>
             <div className="row-meta">{formatTime(selected.at)}</div>
@@ -105,7 +116,7 @@ export function LogsSheet({ nav, onClose, onSelect, onFilter }: Props) {
           </div>
         </div>
       ) : events.length === 0 && state.status === "ready" ? (
-        <div className="empty">No agent activity yet. Send a task from the extension.</div>
+        <div className="empty">No agent activity yet.</div>
       ) : (
         <div className="list">
           {events.map((event) => (
