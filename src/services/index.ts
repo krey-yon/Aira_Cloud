@@ -1,7 +1,10 @@
 export { AgentService } from "./agent.service";
 export { ClientRegistry } from "./client.registry";
+export { ErrorStore } from "./error.store";
 export { JobRunner } from "./job.runner";
 export { JobStore } from "./job.store";
+export { getLogRing, LogRing } from "./log.ring";
 export { LlmService } from "./llm.service";
 export { SkillsService } from "./skills.service";
 export { ToolsService } from "./tools.service";
+export { getWatcherStore, WatcherStore } from "./watcher.store";
