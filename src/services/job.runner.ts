@@ -4,6 +4,7 @@ import type { AgentRequest } from "../types";
 import { AgentService } from "./agent.service";
 import type { ClientRegistry } from "./client.registry";
 import type { JobRecord, JobStore } from "./job.store";
+import { getLogRing } from "./log.ring";
 
 function buildUserContent(text: string, pageContext?: PageContext): string {
   if (!pageContext?.url) return text;
@@ -25,6 +26,7 @@ function buildUserContent(text: string, pageContext?: PageContext): string {
 
 export class JobRunner {
   private readonly queue: string[] = [];
+  private readonly logs = getLogRing();
   private running = false;
 
   constructor(
@@ -57,8 +59,28 @@ export class JobRunner {
     this.clients.send(job.clientId, message);
   }
 
+  private note(
+    job: JobRecord,
+    kind: "status" | "tool" | "answer" | "error",
+    message: string,
+    payload?: unknown,
+  ) {
+    this.jobs.appendEvent(job.id, { kind, message, payload });
+    this.logs.append({
+      kind: kind === "tool" ? "tool" : kind === "error" ? "error" : "job",
+      level: kind === "error" ? "error" : "info",
+      title: kind === "tool" ? `tool:${message}` : `${job.id} ${kind}`,
+      body: typeof payload === "string" ? payload : message,
+      jobId: job.id,
+      clientId: job.clientId,
+      skillId: job.skillId,
+      source: "runner",
+    });
+  }
+
   private async runOne(job: JobRecord) {
     this.jobs.update(job.id, { status: "running" });
+    this.note(job, "status", "running");
     this.emit(job, { type: "status", jobId: job.id, status: "running", phase: "researching" });
 
     try {
@@ -79,6 +101,10 @@ export class JobRunner {
 
       if (result.toolCalls?.length) {
         for (const call of result.toolCalls) {
+          this.note(job, "tool", call.name, {
+            arguments: call.arguments,
+            result: call.result,
+          });
           this.emit(job, {
             type: "tool",
             jobId: job.id,
@@ -96,6 +122,7 @@ export class JobRunner {
         toolCalls: result.toolCalls,
       });
 
+      this.note(job, "answer", "done", result.content.slice(0, 500));
       this.emit(job, {
         type: "answer",
         jobId: job.id,
@@ -122,6 +149,7 @@ export class JobRunner {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.jobs.update(job.id, { status: "error", error: message });
+      this.note(job, "error", message);
       this.emit(job, { type: "error", jobId: job.id, message });
       this.emit(job, {
         type: "widget",

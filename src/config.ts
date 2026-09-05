@@ -23,8 +23,17 @@ export const config = {
   schedulerDbPath:
     process.env.SCHEDULER_DB ??
     `${process.cwd()}/data/scheduler.sqlite`,
+  /** SQLite path for proactive watchers. */
+  watchersDbPath:
+    process.env.WATCHERS_DB ??
+    `${process.cwd()}/data/watchers.sqlite`,
   /** How often to poll for due tasks (ms). */
   schedulerTickMs: Number(process.env.SCHEDULER_TICK_MS ?? 1000),
+  /**
+   * Redis URL for collected error KV storage.
+   * Falls back to Bun's default (`REDIS_URL` / localhost) when empty.
+   */
+  redisUrl: process.env.REDIS_URL ?? "",
 } as const;
 
 export function assertConfig() {

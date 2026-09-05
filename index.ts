@@ -1,5 +1,6 @@
 import type { ServerWebSocket } from "bun";
 
+import consoleIndex from "./console/index.html";
 import type {
   AskHttpRequest,
   ClientToServerMessage,
@@ -11,19 +12,44 @@ import { requestContext } from "./src/lib/request-context";
 import { getScheduler, type ScheduleInput } from "./src/scheduler";
 import { AgentService } from "./src/services/agent.service";
 import { ClientRegistry, type SocketData } from "./src/services/client.registry";
+import { ErrorStore, type CollectErrorInput } from "./src/services/error.store";
 import { JobRunner } from "./src/services/job.runner";
 import { JobStore } from "./src/services/job.store";
+import { getLogRing } from "./src/services/log.ring";
+import { getWatcherStore, type WatcherInput, type WatcherStatus } from "./src/services/watcher.store";
 import { getSkills } from "./src/skills";
 
 assertConfig();
 
 const jobs = new JobStore();
 const clients = new ClientRegistry();
+const errors = new ErrorStore();
 const runner = new JobRunner(jobs, clients);
 const agent = new AgentService();
 const scheduler = getScheduler();
+const logs = getLogRing();
+const watchers = getWatcherStore();
+
+logs.append({
+  kind: "server",
+  level: "info",
+  title: "boot",
+  body: "Aira cloud agent starting",
+  source: "server",
+});
 
 scheduler.setExecutor(async (task) => {
+  logs.append({
+    kind: "job",
+    level: "info",
+    title: `schedule:${task.title}`,
+    body: "Running scheduled task",
+    jobId: task.id,
+    clientId: task.clientId,
+    skillId: task.skillId,
+    source: "scheduler",
+  });
+
   if (task.clientId) {
     clients.send(task.clientId, {
       type: "widget",
@@ -50,6 +76,16 @@ scheduler.setExecutor(async (task) => {
     );
 
     const body = result.content.trim() || `Finished: ${task.title}`;
+    logs.append({
+      kind: "job",
+      level: "info",
+      title: `schedule:${task.title}`,
+      body: body.slice(0, 500),
+      jobId: task.id,
+      clientId: task.clientId,
+      skillId: task.skillId,
+      source: "scheduler",
+    });
     if (task.clientId) {
       clients.send(task.clientId, {
         type: "widget",
@@ -69,6 +105,15 @@ scheduler.setExecutor(async (task) => {
     return { result: body };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    logs.append({
+      kind: "error",
+      level: "error",
+      title: `schedule:${task.title}`,
+      body: message.slice(0, 800),
+      jobId: task.id,
+      clientId: task.clientId,
+      source: "scheduler",
+    });
     if (task.clientId) {
       clients.send(task.clientId, {
         type: "widget",
@@ -90,7 +135,7 @@ function json(data: unknown, status = 200) {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "Authorization, Content-Type",
-      "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
     },
   });
 }
@@ -205,7 +250,9 @@ function handleClientMessage(ws: ServerWebSocket<SocketData>, raw: string | Buff
 
 const server = Bun.serve<SocketData>({
   port: config.port,
+  development: process.env.NODE_ENV !== "production",
   routes: {
+    "/": consoleIndex,
     "/health": {
       GET: () =>
         json({
@@ -213,6 +260,7 @@ const server = Bun.serve<SocketData>({
           service: "aira-on-cloud",
           authRequired: Boolean(config.cloudToken),
           scheduler: true,
+          console: true,
         }),
     },
     "/v1/skills": {
@@ -247,6 +295,27 @@ const server = Bun.serve<SocketData>({
         return json({ jobId: job.id, status: job.status });
       },
     },
+    "/v1/jobs": {
+      GET: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const url = new URL(req.url);
+        const status = url.searchParams.get("status") as
+          | "queued"
+          | "running"
+          | "done"
+          | "error"
+          | null;
+        const limit = Number(url.searchParams.get("limit") ?? 50);
+        return json({
+          jobs: jobs
+            .list({
+              status: status ?? undefined,
+              limit: Number.isFinite(limit) ? limit : 50,
+            })
+            .map((job) => jobs.toHttp(job)),
+        });
+      },
+    },
     "/v1/jobs/:id": {
       GET: (req) => {
         if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
@@ -254,6 +323,106 @@ const server = Bun.serve<SocketData>({
         const job = jobs.get(id);
         if (!job) return json({ error: "Not found" }, 404);
         return json(jobs.toHttp(job));
+      },
+    },
+    "/v1/jobs/:id/events": {
+      GET: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const id = (req as Request & { params: { id: string } }).params.id;
+        if (!jobs.get(id)) return json({ error: "Not found" }, 404);
+        const url = new URL(req.url);
+        const limit = Number(url.searchParams.get("limit") ?? 100);
+        return json({
+          events: jobs.eventsFor(id, Number.isFinite(limit) ? limit : 100),
+        });
+      },
+    },
+    "/v1/logs": {
+      GET: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const url = new URL(req.url);
+        const kind = url.searchParams.get("kind") as
+          | "job"
+          | "tool"
+          | "error"
+          | "server"
+          | null;
+        const limit = Number(url.searchParams.get("limit") ?? 100);
+        const before = url.searchParams.get("before");
+        return json({
+          events: logs.list({
+            kind: kind ?? undefined,
+            limit: Number.isFinite(limit) ? limit : 100,
+            before: before ? Number(before) : undefined,
+          }),
+        });
+      },
+    },
+    "/v1/collect-error": {
+      GET: async (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const url = new URL(req.url);
+        const limit = Number(url.searchParams.get("limit") ?? 50);
+        try {
+          const records = await errors.list(Number.isFinite(limit) ? limit : 50);
+          return json({ records });
+        } catch (err) {
+          console.error("[collect-error] redis list failed", err);
+          return json(
+            { error: err instanceof Error ? err.message : "Failed to list errors" },
+            503,
+          );
+        }
+      },
+      POST: async (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        let body: CollectErrorInput;
+        try {
+          body = (await req.json()) as CollectErrorInput;
+        } catch {
+          return json({ error: "Invalid JSON body" }, 400);
+        }
+        const message = typeof body.message === "string" ? body.message.trim() : "";
+        if (!message) return json({ error: "message is required" }, 400);
+        try {
+          const record = await errors.save({
+            message,
+            code: typeof body.code === "string" ? body.code : undefined,
+            source: typeof body.source === "string" ? body.source : undefined,
+            clientId: typeof body.clientId === "string" ? body.clientId : undefined,
+            jobId: typeof body.jobId === "string" ? body.jobId : undefined,
+            url: typeof body.url === "string" ? body.url : undefined,
+            stack: typeof body.stack === "string" ? body.stack : undefined,
+            metadata:
+              body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata)
+                ? body.metadata
+                : undefined,
+          });
+          return json({ id: record.id, createdAt: record.createdAt }, 201);
+        } catch (err) {
+          console.error("[collect-error] redis save failed", err);
+          return json(
+            { error: err instanceof Error ? err.message : "Failed to store error" },
+            503,
+          );
+        }
+      },
+    },
+    "/v1/collect-error/:id": {
+      GET: async (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const id = (req as Request & { params: { id: string } }).params.id;
+        try {
+          const record = await errors.get(id);
+          if (!record) return json({ error: "Not found" }, 404);
+          return json({ record });
+        } catch (err) {
+          console.error("[collect-error] redis get failed", err);
+          return json(
+            { error: err instanceof Error ? err.message : "Failed to read error" },
+            503,
+          );
+        }
       },
     },
     "/v1/schedule": {
@@ -319,6 +488,76 @@ const server = Bun.serve<SocketData>({
         }
       },
     },
+    "/v1/watchers": {
+      GET: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const url = new URL(req.url);
+        const status = url.searchParams.get("status") as WatcherStatus | null;
+        const clientId = url.searchParams.get("clientId") ?? undefined;
+        const limit = Number(url.searchParams.get("limit") ?? 50);
+        return json({
+          watchers: watchers.list({
+            status: status ?? undefined,
+            clientId,
+            limit: Number.isFinite(limit) ? limit : 50,
+          }),
+        });
+      },
+      POST: async (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        let body: WatcherInput;
+        try {
+          body = (await req.json()) as WatcherInput;
+        } catch {
+          return json({ error: "Invalid JSON body" }, 400);
+        }
+        try {
+          const watcher = watchers.create(body);
+          logs.append({
+            kind: "server",
+            level: "info",
+            title: "watcher:create",
+            body: watcher.title,
+            clientId: watcher.clientId,
+            source: "watchers",
+          });
+          return json({ watcher }, 201);
+        } catch (err) {
+          return json(
+            { error: err instanceof Error ? err.message : String(err) },
+            400,
+          );
+        }
+      },
+    },
+    "/v1/watchers/:id": {
+      GET: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const id = (req as Request & { params: { id: string } }).params.id;
+        const watcher = watchers.get(id);
+        if (!watcher) return json({ error: "Not found" }, 404);
+        return json({ watcher });
+      },
+      PATCH: async (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const id = (req as Request & { params: { id: string } }).params.id;
+        let body: Partial<WatcherInput> & { status?: WatcherStatus };
+        try {
+          body = (await req.json()) as Partial<WatcherInput> & { status?: WatcherStatus };
+        } catch {
+          return json({ error: "Invalid JSON body" }, 400);
+        }
+        const watcher = watchers.update(id, body);
+        if (!watcher) return json({ error: "Not found" }, 404);
+        return json({ watcher });
+      },
+      DELETE: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const id = (req as Request & { params: { id: string } }).params.id;
+        if (!watchers.delete(id)) return json({ error: "Not found" }, 404);
+        return json({ ok: true });
+      },
+    },
     "/v1/ws": {
       GET: (req, server) => {
         const token = extractBearer(req);
@@ -355,7 +594,7 @@ const server = Bun.serve<SocketData>({
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Headers": "Authorization, Content-Type",
-          "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+          "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
         },
       });
     }
@@ -364,7 +603,7 @@ const server = Bun.serve<SocketData>({
 });
 
 console.log(
-  `Aira cloud agent listening on http://localhost:${server.port} (ws /v1/ws, scheduler on)${
+  `Aira cloud agent listening on http://localhost:${server.port} (console /, ws /v1/ws, collect-error, scheduler, watchers)${
     config.cloudToken ? "" : " — CLOUD_TOKEN unset, auth disabled"
   }`,
 );
