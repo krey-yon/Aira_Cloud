@@ -1,7 +1,9 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+import { config } from "../config";
 import { callExaMcp } from "../lib/exa";
+import { scrapeWithFirecrawl } from "../lib/firecrawl";
 
 function normalizeUrl(raw: string): string {
   const trimmed = raw.trim();
@@ -11,9 +13,16 @@ function normalizeUrl(raw: string): string {
   return trimmed;
 }
 
+function isUselessExaOutput(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length < 40) return true;
+  if (trimmed.includes("SOURCE_NOT_AVAILABLE")) return true;
+  return false;
+}
+
 export const webfetchTool = tool({
   description: [
-    "Fetch webpage content via Exa as clean markdown.",
+    "Fetch webpage content as clean markdown (Exa, with Firecrawl fallback).",
     "Use when you have a specific URL to read, summarize, or analyze.",
     "Prefer this after websearch when result highlights are not enough.",
     "Can batch multiple URLs in one call.",
@@ -48,6 +57,7 @@ export const webfetchTool = tool({
       }
     }
 
+    let exaError: string | undefined;
     try {
       const output = await callExaMcp(
         "web_fetch_exa",
@@ -57,18 +67,46 @@ export const webfetchTool = tool({
         },
         45_000,
       );
+      if (!isUselessExaOutput(output)) {
+        return {
+          provider: "exa",
+          urls: list,
+          maxCharacters,
+          output,
+        };
+      }
+      exaError = "Exa returned empty or unavailable content";
+    } catch (err) {
+      exaError = err instanceof Error ? err.message : String(err);
+    }
 
+    if (!config.firecrawlApiKey) {
       return {
         provider: "exa",
+        urls: list,
+        error: `Exa failed (${exaError}); Firecrawl fallback unavailable (FIRECRAWL_API_KEY not set)`,
+      };
+    }
+
+    try {
+      const pages = [];
+      for (const item of list) {
+        pages.push(await scrapeWithFirecrawl(item, { maxCharacters }));
+      }
+      return {
+        provider: "firecrawl",
+        fallbackFrom: "exa",
         urls: list,
         maxCharacters,
-        output,
+        pages,
+        exaError,
       };
     } catch (err) {
+      const firecrawlError = err instanceof Error ? err.message : String(err);
       return {
-        provider: "exa",
+        provider: "firecrawl",
         urls: list,
-        error: err instanceof Error ? err.message : String(err),
+        error: `Exa failed (${exaError}); Firecrawl also failed (${firecrawlError})`,
       };
     }
   },
