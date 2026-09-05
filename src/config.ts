@@ -7,24 +7,27 @@ export const config = {
     process.env.AI_API_KEY ??
     process.env.GOOGLE_GENERATIVE_AI_API_KEY ??
     "",
+  /** Cloudflare account id for Workers AI REST. */
+  cloudflareAccountId: (
+    process.env.CLOUDFLARE_ACCOUNT_ID ??
+    process.env.CLOUD_ACCOUNT_ID ??
+    ""
+  ).trim(),
+  /** Cloudflare API token (Workers AI). */
+  cloudflareApiToken: (
+    process.env.CLOUDFLARE_API_TOKEN ??
+    process.env.CLOUDFLARE_AI_WORKER ??
+    ""
+  ).trim(),
   /**
    * Workers AI model id, e.g. @cf/qwen/qwen3-30b-a3b-fp8
    */
-  defaultModel:
+  defaultModel: (
     process.env.AI_MODEL ??
     process.env.CLOUD_FLARE_AI_MODEL ??
     process.env.CLOUDFLARE_AI_MODEL ??
-    "@cf/qwen/qwen3-30b-a3b-fp8",
-  /** Cloudflare account id for Workers AI REST. */
-  cloudflareAccountId:
-    process.env.CLOUDFLARE_ACCOUNT_ID ??
-    process.env.CLOUD_ACCOUNT_ID ??
-    "",
-  /** Cloudflare API token (Workers AI). */
-  cloudflareApiToken:
-    process.env.CLOUDFLARE_API_TOKEN ??
-    process.env.CLOUDFLARE_AI_WORKER ??
-    "",
+    "@cf/qwen/qwen3-30b-a3b-fp8"
+  ).trim(),
   notionToken:
     process.env.NOTION_TOKEN ??
     process.env.NOTION_API_KEY ??
@@ -107,5 +110,47 @@ export function assertConfig() {
     throw new Error(
       "CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN (or CLOUDFLARE_AI_WORKER) are required",
     );
+  }
+}
+
+/**
+ * Quick REST probe used by /health diagnostics.
+ * Token may verify as active while still lacking Workers AI permission on the account.
+ */
+export async function probeWorkersAiAuth(): Promise<{
+  ok: boolean;
+  status: number;
+  detail: string;
+}> {
+  const url = `https://api.cloudflare.com/client/v4/accounts/${config.cloudflareAccountId}/ai/run/${config.defaultModel}`;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.cloudflareApiToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messages: [{ role: "user", content: "ping" }],
+        max_tokens: 8,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const body = await response.text();
+    if (response.ok) return { ok: true, status: response.status, detail: "Workers AI reachable" };
+    return {
+      ok: false,
+      status: response.status,
+      detail:
+        response.status === 401 || response.status === 403
+          ? "Token verifies elsewhere but cannot run Workers AI on this account. Create a token with Workers AI Read+Edit for this Account ID (Cloudflare → Workers AI → Use REST API)."
+          : body.slice(0, 240),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: 0,
+      detail: err instanceof Error ? err.message : String(err),
+    };
   }
 }
