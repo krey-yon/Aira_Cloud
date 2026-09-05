@@ -20,13 +20,14 @@ export class LlmService {
     instructions?: string;
     messages: Message[];
     tools?: ToolSet;
+    maxSteps?: number;
   }) {
     return generateText({
       model: this.model(),
       instructions: params.instructions,
       messages: params.messages,
       tools: params.tools,
-      stopWhen: isStepCount(5),
+      stopWhen: isStepCount(params.maxSteps ?? 5),
     });
   }
 }

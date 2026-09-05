@@ -3,4 +3,5 @@ export type Skill = {
   name: string;
   description: string;
   instructions: string;
+  maxSteps?: number;
 };

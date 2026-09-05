@@ -17,6 +17,7 @@ export class AgentService {
       instructions: skill.instructions,
       messages: request.messages,
       tools: this.tools.getToolSet(),
+      maxSteps: skill.maxSteps,
     });
 
     const toolCalls = result.steps.flatMap((step) =>
