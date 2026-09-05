@@ -1,4 +1,5 @@
 import type { PageContext, WidgetAction, WidgetKind } from "../shared/agent";
+import { extractAskUser } from "../shared/ask-user-parse";
 import { previewWords, shouldUseCanvas } from "../shared/canvas";
 import {
   actionsFromText,
@@ -13,6 +14,7 @@ import { getCanvasStore } from "./canvas.store";
 import type { ClientRegistry } from "./client.registry";
 import type { JobRecord, JobStore } from "./job.store";
 import { getLogRing } from "./log.ring";
+import { askUser } from "./question.bridge";
 
 function buildUserContent(text: string, pageContext?: PageContext): string {
   if (!pageContext?.url) return text;
@@ -28,7 +30,8 @@ function buildUserContent(text: string, pageContext?: PageContext): string {
   lines.push(
     "",
     "Use websearch/webfetch when you need to research this page or product.",
-    "When you need a human decision, call ask_user (options + optional free text).",
+    "When you need a human decision, call the ask_user tool (options + optional free text).",
+    "Never write <ask_user> tags or JSON question blocks in your final answer — only call the tool.",
   );
   return lines.join("\n");
 }
@@ -280,14 +283,36 @@ export class JobRunner {
         skillId: result.skillId,
       });
 
-      const body = result.content.trim() || "Done.";
-      this.presentAnswer(job, body);
-      this.emit(job, {
-        type: "notify",
-        jobId: job.id,
-        title: "Aira finished",
-        body: body.slice(0, 180),
-      });
+      // Models sometimes dump <ask_user> JSON as prose instead of calling the tool.
+      // Promote that into a real question widget and wait for the human.
+      const leaked = extractAskUser(result.content);
+      if (leaked) {
+        this.note(job, "tool", "ask_user", { source: "text-fallback", prompt: leaked.prompt });
+        const reply = await askUser({
+          prompt: leaked.prompt,
+          options: leaked.options,
+          allowFreeText: leaked.allowFreeText,
+          placeholder: leaked.placeholder,
+        });
+        const choice = reply.text?.trim() || reply.label;
+        const followUp = [leaked.remainder, leaked.remainder ? "" : "", `Got “${choice}”.`].join("\n").trim();
+        this.presentAnswer(job, followUp || `Got “${choice}”.`);
+        this.emit(job, {
+          type: "notify",
+          jobId: job.id,
+          title: "Aira finished",
+          body: (followUp || choice).slice(0, 180),
+        });
+      } else {
+        const body = result.content.trim() || "Done.";
+        this.presentAnswer(job, body);
+        this.emit(job, {
+          type: "notify",
+          jobId: job.id,
+          title: "Aira finished",
+          body: body.slice(0, 180),
+        });
+      }
 
       this.emit(job, { type: "status", jobId: job.id, status: "done" });
     } catch (err) {
