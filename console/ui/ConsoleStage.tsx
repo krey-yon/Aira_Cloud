@@ -3,6 +3,7 @@ import { useGmail } from "../hooks/useGmail";
 import { BrandPill } from "./BrandPill";
 import { Dock } from "./Dock";
 import { GmailCard } from "./GmailCard";
+import { ErrorsSheet } from "./sheets/ErrorsSheet";
 import { LogsSheet } from "./sheets/LogsSheet";
 import { ScheduleSheet } from "./sheets/ScheduleSheet";
 import { WatchersSheet } from "./sheets/WatchersSheet";
@@ -22,6 +23,7 @@ function subtitleFor(nav: ConsoleNav, gmailEmail: string | null): string {
   if (nav.panel === "idle") return gmailEmail ? gmailEmail : "idle";
   if (nav.panel === "logs") return "agent log";
   if (nav.panel === "schedule") return "schedule";
+  if (nav.panel === "errors") return "errors";
   return nav.draft ? "watchers · draft" : "watchers";
 }
 
@@ -53,7 +55,7 @@ export function ConsoleStage({
           <div className="idle-copy idle-copy-inline">
             <div>
               <h2>Aira is listening</h2>
-              <p>Open agent log · schedule · watchers</p>
+              <p>Open agent log · schedule · watchers · errors</p>
             </div>
           </div>
           <GmailCard
@@ -66,24 +68,17 @@ export function ConsoleStage({
         </div>
       )}
 
-      {nav.panel !== "idle" && (
-        <>
-          <button type="button" className="backdrop" aria-label="Close panel" onClick={onClose} />
-          {nav.panel === "logs" && (
-            <LogsSheet nav={nav} onClose={onClose} onSelect={onSelect} onFilter={onFilter} />
-          )}
-          {nav.panel === "schedule" && (
-            <ScheduleSheet nav={nav} onClose={onClose} onSelect={onSelect} />
-          )}
-          {nav.panel === "watchers" && (
-            <WatchersSheet
-              nav={nav}
-              onClose={onClose}
-              onSelect={onSelect}
-              onDraft={onDraft}
-            />
-          )}
-        </>
+      {nav.panel === "logs" && (
+        <LogsSheet nav={nav} onClose={onClose} onSelect={onSelect} onFilter={onFilter} />
+      )}
+      {nav.panel === "schedule" && (
+        <ScheduleSheet nav={nav} onClose={onClose} onSelect={onSelect} />
+      )}
+      {nav.panel === "watchers" && (
+        <WatchersSheet nav={nav} onClose={onClose} onSelect={onSelect} onDraft={onDraft} />
+      )}
+      {nav.panel === "errors" && (
+        <ErrorsSheet nav={nav} onClose={onClose} onSelect={onSelect} />
       )}
 
       <Dock

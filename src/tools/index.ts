@@ -17,6 +17,11 @@ import {
   listScheduledTasksTool,
   scheduleTaskTool,
 } from "./schedule.tools";
+import {
+  createWatcherTool,
+  listWatchersTool,
+  updateWatcherTool,
+} from "./watcher.tools";
 import { webfetchTool } from "./webfetch.tool";
 import { websearchTool } from "./websearch.tool";
 import type { AppTools } from "./types";
@@ -32,6 +37,9 @@ export const tools = {
   schedule_task: scheduleTaskTool,
   list_scheduled_tasks: listScheduledTasksTool,
   cancel_scheduled_task: cancelScheduledTaskTool,
+  create_watcher: createWatcherTool,
+  list_watchers: listWatchersTool,
+  update_watcher: updateWatcherTool,
   notion_whoami: notionWhoamiTool,
   notion_search: notionSearchTool,
   notion_read_page: notionReadPageTool,

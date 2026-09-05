@@ -4,22 +4,44 @@ export function ensureTokenFromUrl() {
   const url = new URL(window.location.href);
   const token = url.searchParams.get("token");
   if (token) {
-    sessionStorage.setItem(TOKEN_KEY, token);
+    setToken(token);
     url.searchParams.delete("token");
     window.history.replaceState({}, "", url.pathname + url.search + url.hash);
   }
 }
 
 export function getToken(): string | null {
-  return sessionStorage.getItem(TOKEN_KEY);
+  try {
+    const local = localStorage.getItem(TOKEN_KEY);
+    if (local) return local;
+    // migrate older session-only tokens
+    const session = sessionStorage.getItem(TOKEN_KEY);
+    if (session) {
+      localStorage.setItem(TOKEN_KEY, session);
+      sessionStorage.removeItem(TOKEN_KEY);
+      return session;
+    }
+  } catch {}
+  return null;
 }
 
 export function setToken(token: string) {
-  sessionStorage.setItem(TOKEN_KEY, token.trim());
+  const next = token.trim();
+  try {
+    localStorage.setItem(TOKEN_KEY, next);
+    sessionStorage.removeItem(TOKEN_KEY);
+  } catch {
+    sessionStorage.setItem(TOKEN_KEY, next);
+  }
 }
 
 export function clearToken() {
-  sessionStorage.removeItem(TOKEN_KEY);
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+  } catch {}
+  try {
+    sessionStorage.removeItem(TOKEN_KEY);
+  } catch {}
 }
 
 export class ApiError extends Error {

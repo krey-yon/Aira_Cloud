@@ -25,7 +25,9 @@ import {
 } from "./src/services/gmail.oauth";
 import { getGmailStore } from "./src/services/gmail.store";
 import { getCanvasStore } from "./src/services/canvas.store";
+import { getNotifyQueue } from "./src/services/notify.queue";
 import { bindQuestionBridge, resolveQuestionReply } from "./src/services/question.bridge";
+import { getWatcherRunner } from "./src/services/watcher.runner";
 import { getWatcherStore, type WatcherInput, type WatcherStatus } from "./src/services/watcher.store";
 import { getSkills } from "./src/skills";
 import { renderMarkdown } from "./src/shared/markdown";
@@ -42,6 +44,8 @@ const agent = new AgentService();
 const scheduler = getScheduler();
 const logs = getLogRing();
 const watchers = getWatcherStore();
+const notifyQueue = getNotifyQueue();
+const watcherRunner = getWatcherRunner(clients);
 const canvases = getCanvasStore();
 bindQuestionBridge(clients);
 
@@ -172,6 +176,7 @@ scheduler.setExecutor(async (task) => {
 });
 
 scheduler.start();
+watcherRunner.start(config.watcherTickMs);
 
 function json(data: unknown, status = 200) {
   return Response.json(data, {
@@ -242,7 +247,9 @@ function handleClientMessage(ws: ServerWebSocket<SocketData>, raw: string | Buff
       return;
     }
     ws.data.authed = true;
-    clients.attach(message.clientId || newClientId(), ws);
+    const clientId = message.clientId || newClientId();
+    clients.attach(clientId, ws);
+    void watcherRunner.onClientPresent(clientId);
     return;
   }
 
@@ -254,6 +261,15 @@ function handleClientMessage(ws: ServerWebSocket<SocketData>, raw: string | Buff
   if (!ws.data.clientId) {
     clients.attach(newClientId(), ws);
     ws.data.authed = true;
+  }
+
+  if (message.type === "heartbeat") {
+    const clientId = message.clientId || ws.data.clientId;
+    if (clientId) {
+      clients.touch(clientId);
+      void watcherRunner.onClientPresent(clientId);
+    }
+    return;
   }
 
   if (message.type === "context") {
@@ -753,7 +769,10 @@ const server = Bun.serve<SocketData>({
         } catch {
           return json({ error: "Invalid JSON body" }, 400);
         }
-        const watcher = watchers.update(id, body);
+        const watcher = watchers.update(id, {
+          ...body,
+          ...(body.status === "active" ? { nextCheckAt: Date.now(), lastError: undefined } : {}),
+        });
         if (!watcher) return json({ error: "Not found" }, 404);
         return json({ watcher });
       },
@@ -762,6 +781,34 @@ const server = Bun.serve<SocketData>({
         const id = (req as Request & { params: { id: string } }).params.id;
         if (!watchers.delete(id)) return json({ error: "Not found" }, 404);
         return json({ ok: true });
+      },
+    },
+    "/v1/notify-queue": {
+      GET: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const url = new URL(req.url);
+        const status = url.searchParams.get("status") as
+          | "pending"
+          | "delivered"
+          | "skipped"
+          | "failed"
+          | null;
+        const limit = Number(url.searchParams.get("limit") ?? 50);
+        return json({
+          events: notifyQueue.list({
+            status: status ?? undefined,
+            limit: Number.isFinite(limit) ? limit : 50,
+          }),
+        });
+      },
+    },
+    "/v1/presence": {
+      GET: (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        return json({
+          anyOnline: clients.anyOnline(),
+          clients: clients.presenceSnapshot(),
+        });
       },
     },
     "/v1/ws": {

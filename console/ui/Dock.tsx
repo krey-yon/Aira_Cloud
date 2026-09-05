@@ -74,6 +74,22 @@ export function Dock({
             <circle cx="7" cy="7" r="1.6" stroke="currentColor" strokeWidth="1.4" />
           </svg>
         </IconButton>
+        <IconButton
+          label="Collected errors"
+          active={active === "errors"}
+          onClick={() => onOpen("errors")}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+            <path
+              d="M7 1.8 12.2 12H1.8L7 1.8Z"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+            />
+            <path d="M7 5.4v3.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <circle cx="7" cy="10.2" r="0.7" fill="currentColor" />
+          </svg>
+        </IconButton>
         {onGmail && (
           <IconButton
             label={gmailConnected ? "Disconnect Gmail" : "Connect Gmail"}

@@ -27,6 +27,22 @@ export const config = {
   watchersDbPath:
     process.env.WATCHERS_DB ??
     `${process.cwd()}/data/watchers.sqlite`,
+  /** SQLite path for watcher notification queue. */
+  notifyDbPath:
+    process.env.NOTIFY_DB ??
+    `${process.cwd()}/data/notify.sqlite`,
+  /** Resend API key for cloud-sent watcher emails (`RESEND` or `RESEND_API_KEY`). */
+  resendApiKey: process.env.RESEND ?? process.env.RESEND_API_KEY ?? "",
+  /** From header for watcher emails. */
+  resendFrom:
+    process.env.RESEND_FROM ??
+    "Aira <aira@kreyon.in>",
+  /** Constant destination for watcher alerts. */
+  notifyEmail:
+    process.env.AIRA_NOTIFY_EMAIL ??
+    "kushwaha.k.vikas@gmail.com",
+  /** How often the watcher runner ticks (ms). */
+  watcherTickMs: Number(process.env.WATCHER_TICK_MS ?? 15_000),
   /** SQLite path for Gmail OAuth tokens. */
   gmailDbPath:
     process.env.GMAIL_DB ??

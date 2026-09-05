@@ -48,6 +48,7 @@ export type WidgetKind =
 /** Extension → cloud */
 export type ClientToServerMessage =
   | { type: "hello"; clientId: string; token?: string }
+  | { type: "heartbeat"; clientId?: string }
   | { type: "context"; url: string; title: string; tabId?: number }
   | {
       type: "ask";
