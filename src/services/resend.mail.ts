@@ -1,4 +1,4 @@
-import { config } from "../config";
+import { config, publicOrigin } from "../config";
 
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (ch) =>
@@ -62,7 +62,7 @@ export async function sendWatcherEmail(input: {
   const from = config.resendFrom.trim() || "Aira <aira@kreyon.in>";
   const html = buildWatcherEmailHtml({
     ...input,
-    consoleUrl: (config.publicBaseUrl.trim() || "https://aira.kreyon.in").replace(/\/$/, ""),
+    consoleUrl: publicOrigin(),
   });
 
   try {

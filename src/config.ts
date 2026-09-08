@@ -89,12 +89,12 @@ export const config = {
     `${process.cwd()}/data/canvas.sqlite`,
   /**
    * Public origin for canvas links shown in the extension.
-   * Production default: https://aira.kreyon.in
+   * Override with PUBLIC_BASE_URL for local (e.g. http://localhost:8787).
    */
   publicBaseUrl:
     process.env.PUBLIC_BASE_URL ??
     process.env.AIRA_PUBLIC_URL ??
-    "",
+    "https://aira.kreyon.in",
   /** Answers longer than this word count open on the canvas instead of the widget. */
   canvasWordCap: Number(process.env.CANVAS_WORD_CAP ?? 120),
   /** Google OAuth client for Gmail send/read. */
@@ -116,6 +116,11 @@ export const config = {
    */
   redisUrl: process.env.REDIS_URL ?? "",
 } as const;
+
+/** Public site origin for canvas / console links (no trailing slash). */
+export function publicOrigin(): string {
+  return config.publicBaseUrl.trim().replace(/\/$/, "") || "https://aira.kreyon.in";
+}
 
 export function assertConfig() {
   if (!config.cloudflareAccountId || !config.cloudflareApiToken) {

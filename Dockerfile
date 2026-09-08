@@ -14,6 +14,7 @@ RUN mkdir -p /app/data
 
 ENV NODE_ENV=production
 ENV PORT=7777
+ENV PUBLIC_BASE_URL=https://aira.kreyon.in
 ENV SCHEDULER_DB=/app/data/scheduler.sqlite
 EXPOSE 7777
 

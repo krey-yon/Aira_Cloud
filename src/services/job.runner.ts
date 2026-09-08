@@ -6,7 +6,7 @@ import {
   pickBodyFormat,
   presentBody,
 } from "../shared/widget";
-import { config } from "../config";
+import { config, publicOrigin } from "../config";
 import { requestContext } from "../lib/request-context";
 import type { AgentRequest } from "../types";
 import { AgentService } from "./agent.service";
@@ -34,12 +34,6 @@ function buildUserContent(text: string, pageContext?: PageContext): string {
     "Never write <ask_user> tags or JSON question blocks in your final answer — only call the tool.",
   );
   return lines.join("\n");
-}
-
-function publicOrigin(): string {
-  const configured = config.publicBaseUrl.trim().replace(/\/$/, "");
-  if (configured) return configured;
-  return `http://localhost:${config.port}`;
 }
 
 function toolTitle(name: string): string {

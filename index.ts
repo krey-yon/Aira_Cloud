@@ -7,7 +7,7 @@ import type {
   ServerToClientMessage,
 } from "./src/shared/agent";
 import { newClientId, newJobId } from "./src/shared/agent";
-import { config } from "./src/config";
+import { config, publicOrigin } from "./src/config";
 import { requestContext } from "./src/lib/request-context";
 import { getScheduler, type ScheduleInput } from "./src/scheduler";
 import { AgentService } from "./src/services/agent.service";
@@ -121,8 +121,7 @@ scheduler.setExecutor(async (task) => {
       let actions = actionsFromText(body);
       if (shouldUseCanvas(body, config.canvasWordCap)) {
         const record = canvases.put({ markdown: body, title: task.title });
-        const origin = (config.publicBaseUrl.trim() || `http://localhost:${config.port}`).replace(/\/$/, "");
-        canvasUrl = `${origin}/r/${record.id}`;
+        canvasUrl = `${publicOrigin()}/r/${record.id}`;
         widgetBody = previewWords(body);
         actions = [
           {
