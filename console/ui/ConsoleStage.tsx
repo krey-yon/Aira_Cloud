@@ -3,6 +3,7 @@ import { useGmail } from "../hooks/useGmail";
 import { BrandPill } from "./BrandPill";
 import { Dock } from "./Dock";
 import { LogoutButton } from "./LogoutButton";
+import { MailBoard } from "./mail/MailBoard";
 import { ErrorsSheet } from "./sheets/ErrorsSheet";
 import { LogsSheet } from "./sheets/LogsSheet";
 import { ScheduleSheet } from "./sheets/ScheduleSheet";
@@ -21,7 +22,7 @@ type Props = {
 };
 
 function subtitleFor(nav: ConsoleNav, gmailEmail: string | null): string {
-  if (nav.panel === "idle") return gmailEmail ? gmailEmail : "canvas";
+  if (nav.panel === "idle") return gmailEmail ? gmailEmail : "mail";
   if (nav.panel === "logs") return "agent log";
   if (nav.panel === "schedule") return "schedule";
   if (nav.panel === "errors") return "errors";
@@ -41,6 +42,7 @@ export function ConsoleStage({
 }: Props) {
   const active = nav.panel === "idle" ? null : nav.panel;
   const gmail = useGmail(true);
+  const showMail = nav.panel === "idle";
 
   return (
     <main className="stage canvas-aurora">
@@ -53,7 +55,7 @@ export function ConsoleStage({
       <BrandPill subtitle={subtitleFor(nav, gmail.status?.email ?? null)} />
       <LogoutButton onLogout={onLogout} />
 
-      {/* Idle = empty canvas. Dock opens panels; Gmail connect lives on the dock. */}
+      {showMail && <MailBoard enabled />}
 
       {nav.panel === "logs" && (
         <LogsSheet nav={nav} onClose={onClose} onSelect={onSelect} onFilter={onFilter} />
