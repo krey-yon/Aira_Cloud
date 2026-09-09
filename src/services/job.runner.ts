@@ -2,6 +2,10 @@ import type { PageContext, WidgetAction, WidgetKind } from "../shared/agent";
 import { extractAskUser } from "../shared/ask-user-parse";
 import { previewWords, shouldUseCanvas } from "../shared/canvas";
 import {
+  scheduleToolSucceeded,
+  wantsSchedule,
+} from "../shared/schedule-intent";
+import {
   actionsFromText,
   pickBodyFormat,
   presentBody,
@@ -262,34 +266,56 @@ export class JobRunner {
           }),
       );
 
+      const askUserFromProse = extractAskUser(result.content);
+      let content = result.content;
+      if (
+        !askUserFromProse &&
+        wantsSchedule(job.text) &&
+        !scheduleToolSucceeded(result.toolCalls)
+      ) {
+        content =
+          "Scheduling did not happen. The schedule_task tool was not called or it returned ok: false, so nothing was added to the queue.";
+        this.note(
+          job,
+          "status",
+          "schedule_task missing or failed; not claiming success",
+        );
+      }
+
       this.jobs.update(job.id, {
         status: "done",
-        content: result.content,
+        content,
         skillId: result.skillId,
         toolCalls: result.toolCalls,
       });
 
-      this.note(job, "answer", "done", result.content.slice(0, 500));
+      this.note(job, "answer", "done", content.slice(0, 500));
       this.emit(job, {
         type: "answer",
         jobId: job.id,
-        content: result.content,
+        content,
         skillId: result.skillId,
       });
 
-      // Models sometimes dump <ask_user> JSON as prose instead of calling the tool.
-      // Promote that into a real question widget and wait for the human.
-      const leaked = extractAskUser(result.content);
-      if (leaked) {
-        this.note(job, "tool", "ask_user", { source: "text-fallback", prompt: leaked.prompt });
+      if (askUserFromProse) {
+        this.note(job, "tool", "ask_user", {
+          source: "text-fallback",
+          prompt: askUserFromProse.prompt,
+        });
         const reply = await askUser({
-          prompt: leaked.prompt,
-          options: leaked.options,
-          allowFreeText: leaked.allowFreeText,
-          placeholder: leaked.placeholder,
+          prompt: askUserFromProse.prompt,
+          options: askUserFromProse.options,
+          allowFreeText: askUserFromProse.allowFreeText,
+          placeholder: askUserFromProse.placeholder,
         });
         const choice = reply.text?.trim() || reply.label;
-        const followUp = [leaked.remainder, leaked.remainder ? "" : "", `Got “${choice}”.`].join("\n").trim();
+        const followUp = [
+          askUserFromProse.remainder,
+          askUserFromProse.remainder ? "" : "",
+          `Got “${choice}”.`,
+        ]
+          .join("\n")
+          .trim();
         this.presentAnswer(job, followUp || `Got “${choice}”.`);
         this.emit(job, {
           type: "notify",
@@ -298,7 +324,7 @@ export class JobRunner {
           body: (followUp || choice).slice(0, 180),
         });
       } else {
-        const body = result.content.trim() || "Done.";
+        const body = content.trim() || "Done.";
         this.presentAnswer(job, body);
         this.emit(job, {
           type: "notify",

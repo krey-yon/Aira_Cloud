@@ -16,9 +16,10 @@ export const scheduleTaskTool = tool({
     "Schedule any future task for Aira to execute at a specific time.",
     "Use for deferred work: send an email Monday 9am, research something tonight,",
     "remind the user, write to Notion later, nudge about YouTube, etc.",
-    "Prefer runAt as an ISO 8601 datetime with timezone when the user names a clock time.",
-    "Otherwise use delayMinutes / delayHours / delayDays.",
+    "Prefer runAt as an ISO 8601 datetime with timezone offset when the user names a clock time. runAt must be in the future.",
+    "Prefer delayMinutes / delayHours / delayDays for relative times.",
     "The prompt must be a complete instruction the agent can execute later without more context.",
+    "Never tell the user the task is scheduled unless this tool returns ok: true with a task id.",
   ].join(" "),
   inputSchema: z.object({
     title: z.string().min(1).describe("Short label shown in the schedule list"),
@@ -32,7 +33,7 @@ export const scheduleTaskTool = tool({
       .string()
       .optional()
       .describe(
-        "Absolute ISO 8601 datetime, e.g. 2026-09-08T09:00:00+05:30. Prefer when user names a day/time.",
+        "Absolute ISO 8601 datetime with timezone offset. Must be in the future. Prefer delayMinutes/delayHours/delayDays for relative times.",
       ),
     ...delayFields,
     skillId: z.string().optional().describe("Optional skill to use when the task fires"),
