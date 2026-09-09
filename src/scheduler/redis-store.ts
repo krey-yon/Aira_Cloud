@@ -66,10 +66,6 @@ export class RedisTaskStore implements TaskStoreApi {
     return parsed.filter((id): id is string => typeof id === "string");
   }
 
-  private async writeIndex(ids: string[]) {
-    await this.redis().set(INDEX_KEY, JSON.stringify(ids.slice(0, INDEX_CAP)));
-  }
-
   private async pushIndex(id: string) {
     await this.redis().send("EVAL", [
       PUSH_INDEX_LUA,
