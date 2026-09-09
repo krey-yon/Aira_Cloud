@@ -17,3 +17,12 @@ export {
   getValidAccessToken,
   GMAIL_SCOPES,
 } from "./gmail.oauth";
+export {
+  buildRawMime,
+  connectedAccountEmail,
+  getMessage,
+  listMessages,
+  sendMessage,
+} from "./gmail.client";
+export { getMailStore, MailStore, resetMailStoreForTests } from "./mail.store";
+export type { MailBoardPayload, MailNode, MailTemplate } from "./mail.types";

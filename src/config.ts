@@ -83,6 +83,10 @@ export const config = {
   gmailDbPath:
     process.env.GMAIL_DB ??
     `${process.cwd()}/data/gmail.sqlite`,
+  /** SQLite path for Aira mail drafts and templates. */
+  mailDbPath:
+    process.env.MAIL_DB ??
+    `${process.cwd()}/data/mail.sqlite`,
   /** SQLite path for long answer canvases opened from the extension. */
   canvasDbPath:
     process.env.CANVAS_DB ??
