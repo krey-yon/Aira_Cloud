@@ -24,6 +24,8 @@ import {
   gmailStatus,
 } from "./src/services/gmail.oauth";
 import { getGmailStore } from "./src/services/gmail.store";
+import { getMessage, listMessages, sendMessage } from "./src/services/gmail.client";
+import { getMailStore } from "./src/services/mail.store";
 import { getCanvasStore } from "./src/services/canvas.store";
 import { getNotifyQueue } from "./src/services/notify.queue";
 import { bindQuestionBridge, resolveQuestionReply } from "./src/services/question.bridge";
@@ -87,6 +89,55 @@ scheduler.setExecutor(async (task) => {
   }
 
   try {
+    const mailAction = task.metadata?.mailAction;
+    const draftId =
+      typeof task.metadata?.draftId === "string" ? task.metadata.draftId : null;
+
+    if (mailAction === "send_draft" && draftId) {
+      const store = getMailStore();
+      const node = store.getNode(draftId);
+      if (!node) throw new Error(`Unknown draft: ${draftId}`);
+      if (node.status === "sent") {
+        return { result: `Already sent draft ${draftId}` };
+      }
+      const sent = await sendMessage({
+        to: node.to,
+        cc: node.cc,
+        bcc: node.bcc,
+        subject: node.subject,
+        body: node.body,
+      });
+      store.setStatus(draftId, "sent", { gmailMessageId: sent.id });
+      const body = `Sent “${node.subject}” to ${node.to.join(", ")}`;
+      logs.append({
+        kind: "job",
+        level: "info",
+        title: `schedule:${task.title}`,
+        body,
+        jobId: task.id,
+        clientId: task.clientId,
+        skillId: task.skillId,
+        source: "scheduler",
+      });
+      if (task.clientId) {
+        clients.send(task.clientId, {
+          type: "widget",
+          jobId: task.id,
+          title: task.title,
+          body,
+          kind: "answer",
+          format: "plain",
+        });
+        clients.send(task.clientId, {
+          type: "notify",
+          jobId: task.id,
+          title: task.title,
+          body: body.slice(0, 180),
+        });
+      }
+      return { result: body };
+    }
+
     const result = await requestContext.run(
       { clientId: task.clientId, jobId: task.id },
       () =>
@@ -496,6 +547,135 @@ const server = Bun.serve<SocketData>({
           source: "gmail",
         });
         return json({ ok: true, connected: false });
+      },
+    },
+    "/v1/mail/board": {
+      GET: async (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const store = getMailStore();
+        const drafts = store.listNodes("draft");
+        const scheduled = store.listNodes("scheduled");
+        let recent: Array<{
+          id: string;
+          from: string;
+          to: string;
+          subject: string;
+          snippet: string;
+          body: string;
+          date: string;
+        }> = [];
+        try {
+          if (gmailStatus().connected) {
+            const messages = await listMessages({ maxResults: 5 });
+            recent = messages.map((m) => ({
+              id: m.id,
+              from: m.from,
+              to: m.to,
+              subject: m.subject,
+              snippet: m.snippet,
+              body: m.snippet,
+              date: m.date,
+            }));
+          }
+        } catch (err) {
+          logs.append({
+            kind: "error",
+            level: "warn",
+            title: "mail:recent",
+            body: (err instanceof Error ? err.message : String(err)).slice(0, 400),
+            source: "gmail",
+          });
+        }
+        return json({ drafts, scheduled, recent });
+      },
+    },
+    "/v1/mail/drafts/:id/send": {
+      POST: async (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const id = (req as Request & { params: { id: string } }).params.id;
+        if (!id) return json({ error: "id required" }, 400);
+        try {
+          const store = getMailStore();
+          const node = store.getNode(id);
+          if (!node) return json({ error: "Unknown draft" }, 404);
+          if (node.status === "sent") {
+            return json({ ok: true, alreadySent: true, draft: node });
+          }
+          if (node.scheduleTaskId && node.status === "scheduled") {
+            try {
+              await scheduler.cancel(node.scheduleTaskId);
+            } catch {
+              // ignore
+            }
+          }
+          const sent = await sendMessage({
+            to: node.to,
+            cc: node.cc,
+            bcc: node.bcc,
+            subject: node.subject,
+            body: node.body,
+          });
+          const draft = store.setStatus(id, "sent", { gmailMessageId: sent.id });
+          return json({ ok: true, id: sent.id, draft });
+        } catch (err) {
+          return json(
+            { error: err instanceof Error ? err.message : String(err) },
+            500,
+          );
+        }
+      },
+    },
+    "/v1/mail/drafts/:id": {
+      GET: async (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const id = (req as Request & { params: { id: string } }).params.id;
+        if (!id) return json({ error: "id required" }, 400);
+        const draft = getMailStore().getNode(id);
+        if (!draft) return json({ error: "Unknown draft" }, 404);
+        return json({ draft });
+      },
+      DELETE: async (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const id = (req as Request & { params: { id: string } }).params.id;
+        if (!id) return json({ error: "id required" }, 400);
+        try {
+          const store = getMailStore();
+          const node = store.getNode(id);
+          if (!node) return json({ error: "Unknown draft" }, 404);
+          if (node.scheduleTaskId && node.status === "scheduled") {
+            try {
+              await scheduler.cancel(node.scheduleTaskId);
+            } catch {
+              // ignore
+            }
+          }
+          const draft = store.setStatus(
+            id,
+            node.status === "scheduled" ? "cancelled" : "discarded",
+          );
+          return json({ ok: true, draft });
+        } catch (err) {
+          return json(
+            { error: err instanceof Error ? err.message : String(err) },
+            500,
+          );
+        }
+      },
+    },
+    "/v1/mail/messages/:id": {
+      GET: async (req) => {
+        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const id = (req as Request & { params: { id: string } }).params.id;
+        if (!id) return json({ error: "id required" }, 400);
+        try {
+          const message = await getMessage(id);
+          return json({ message });
+        } catch (err) {
+          return json(
+            { error: err instanceof Error ? err.message : String(err) },
+            500,
+          );
+        }
       },
     },
     "/v1/skills": {

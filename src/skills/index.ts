@@ -1,5 +1,6 @@
 import { emailVerifySkill } from "./email-verify";
 import { generalAssistantSkill } from "./general-assistant";
+import { gmailSkill } from "./gmail";
 import { notionSkill } from "./notion";
 import { webfetchSkill } from "./webfetch";
 import { websearchSkill } from "./websearch";
@@ -10,6 +11,7 @@ export * from "./types";
 const skills: Skill[] = [
   generalAssistantSkill,
   notionSkill,
+  gmailSkill,
   emailVerifySkill,
   webfetchSkill,
   websearchSkill,
