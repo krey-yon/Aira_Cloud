@@ -8,6 +8,31 @@ const KEY_PREFIX = "schedule:";
 const INDEX_KEY = "schedule:index";
 const INDEX_CAP = 500;
 
+const PUSH_INDEX_LUA = `
+local raw = redis.call('GET', KEYS[1])
+local ids = {}
+if raw then
+  local ok, decoded = pcall(cjson.decode, raw)
+  if not ok or type(decoded) ~= 'table' then
+    return redis.error_reply('corrupt schedule index')
+  end
+  ids = decoded
+end
+local newId = ARGV[1]
+local cap = tonumber(ARGV[2]) or 500
+local out = {newId}
+for i = 1, #ids do
+  if ids[i] ~= newId then
+    out[#out + 1] = ids[i]
+  end
+  if #out >= cap then
+    break
+  end
+end
+redis.call('SET', KEYS[1], cjson.encode(out))
+return #out
+`.trim();
+
 function taskKey(id: string) {
   return `${KEY_PREFIX}${id}`;
 }
@@ -25,14 +50,20 @@ export class RedisTaskStore implements TaskStoreApi {
   }
 
   private async readIndex(): Promise<string[]> {
+    const raw = await this.redis().get(INDEX_KEY);
+    if (!raw) return [];
+    let parsed: unknown;
     try {
-      const raw = await this.redis().get(INDEX_KEY);
-      if (!raw) return [];
-      const ids = JSON.parse(raw) as string[];
-      return Array.isArray(ids) ? ids : [];
-    } catch {
-      return [];
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      throw new Error(
+        `Corrupt schedule index: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
+    if (!Array.isArray(parsed)) {
+      throw new Error("Corrupt schedule index: not an array");
+    }
+    return parsed.filter((id): id is string => typeof id === "string");
   }
 
   private async writeIndex(ids: string[]) {
@@ -40,8 +71,13 @@ export class RedisTaskStore implements TaskStoreApi {
   }
 
   private async pushIndex(id: string) {
-    const ids = await this.readIndex();
-    await this.writeIndex([id, ...ids.filter((x) => x !== id)]);
+    await this.redis().send("EVAL", [
+      PUSH_INDEX_LUA,
+      "1",
+      INDEX_KEY,
+      id,
+      String(INDEX_CAP),
+    ]);
   }
 
   private async saveTask(task: ScheduledTask) {

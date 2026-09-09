@@ -48,12 +48,20 @@ export function newTaskId(): string {
   return `task_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
 }
 
+/** Allow runAt up to this many ms before now (clock skew / model rounding). */
+const PAST_RUN_AT_GRACE_MS = 5_000;
+
 /** Resolve runAt from absolute ISO or relative delay fields. */
 export function resolveRunAt(input: ScheduleInput, now = Date.now()): Date {
   if (input.runAt) {
     const date = new Date(input.runAt);
     if (Number.isNaN(date.getTime())) {
       throw new Error(`Invalid runAt datetime: ${input.runAt}`);
+    }
+    if (date.getTime() < now - PAST_RUN_AT_GRACE_MS) {
+      throw new Error(
+        `runAt is in the past (${input.runAt}). Use a future ISO datetime or a delay.`,
+      );
     }
     return date;
   }

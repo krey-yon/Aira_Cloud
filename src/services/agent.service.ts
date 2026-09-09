@@ -1,3 +1,4 @@
+import { formatAgentClock } from "../lib/agent-clock";
 import type { AgentRequest, AgentResponse } from "../types";
 import { LlmService, type GenerateHooks } from "./llm.service";
 import { SkillsService } from "./skills.service";
@@ -14,7 +15,7 @@ export class AgentService {
     const skill = this.skills.resolve(request.skillId);
 
     const result = await this.llm.generate({
-      instructions: skill.instructions,
+      instructions: `${skill.instructions}\n\n# Current time\n${formatAgentClock()}\nUse this clock when building schedule_task runAt values. Prefer delayMinutes/delayHours for relative times.`,
       messages: request.messages,
       tools: this.tools.getToolSet(),
       maxSteps: skill.maxSteps,

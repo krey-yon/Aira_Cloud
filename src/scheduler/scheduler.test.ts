@@ -9,14 +9,28 @@ import { resolveRunAt } from "./types";
 
 describe("resolveRunAt", () => {
   test("uses absolute ISO runAt", () => {
-    const date = resolveRunAt({
-      title: "t",
-      prompt: "p",
-      runAt: "2026-09-08T09:00:00+05:30",
-    });
-    expect(date.toISOString()).toBe(
-      new Date("2026-09-08T09:00:00+05:30").toISOString(),
+    const now = Date.UTC(2026, 8, 10, 0, 0, 0);
+    const date = resolveRunAt(
+      {
+        title: "t",
+        prompt: "p",
+        runAt: "2026-09-15T09:00:00+05:30",
+      },
+      now,
     );
+    expect(date.toISOString()).toBe(
+      new Date("2026-09-15T09:00:00+05:30").toISOString(),
+    );
+  });
+
+  test("rejects past runAt", () => {
+    const now = Date.UTC(2026, 8, 10, 0, 0, 0);
+    expect(() =>
+      resolveRunAt(
+        { title: "t", prompt: "p", runAt: "2026-09-08T09:00:00+05:30" },
+        now,
+      ),
+    ).toThrow(/past/);
   });
 
   test("uses relative delay", () => {
