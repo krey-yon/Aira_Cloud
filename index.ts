@@ -8,6 +8,7 @@ import type {
 } from "./src/shared/agent";
 import { newClientId, newJobId } from "./src/shared/agent";
 import { config, publicOrigin } from "./src/config";
+import { authorize, extractBearer, json, readJson, requireAuth } from "./src/http/auth";
 import { requestContext } from "./src/lib/request-context";
 import { getScheduler, type ScheduleInput } from "./src/scheduler";
 import { AgentService } from "./src/services/agent.service";
@@ -240,30 +241,6 @@ scheduler.start();
 ensureSolanaIndiaGrantsWatcher();
 watcherRunner.start(config.watcherTickMs);
 
-function json(data: unknown, status = 200) {
-  return Response.json(data, {
-    status,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "Authorization, Content-Type",
-      "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-    },
-  });
-}
-
-function extractBearer(req: Request): string | undefined {
-  const header = req.headers.get("authorization") || "";
-  const match = /^Bearer\s+(.+)$/i.exec(header);
-  if (match?.[1]) return match[1].trim();
-  const url = new URL(req.url);
-  return url.searchParams.get("token")?.trim() || undefined;
-}
-
-function authorize(token?: string): boolean {
-  if (!config.cloudToken) return true;
-  return Boolean(token && token === config.cloudToken);
-}
-
 function send(ws: ServerWebSocket<SocketData>, message: ServerToClientMessage) {
   ws.send(JSON.stringify(message));
 }
@@ -467,7 +444,7 @@ const server = Bun.serve<SocketData>({
     },
     "/auth/gmail": {
       GET: (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         if (!gmailConfigured()) {
           return json(
             {
@@ -537,11 +514,11 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/gmail": {
       GET: (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         return json(gmailStatus());
       },
       DELETE: (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const account = getGmailStore().primary();
         if (!account) return json({ ok: true, connected: false });
         getGmailStore().delete(account.email);
@@ -557,7 +534,7 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/mail/board": {
       GET: async (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const store = getMailStore();
         const drafts = store.listNodes("draft");
         const scheduled = store.listNodes("scheduled");
@@ -584,7 +561,7 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/mail/drafts/:id/send": {
       POST: async (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const id = (req as Request & { params: { id: string } }).params.id;
         if (!id) return json({ error: "id required" }, 400);
         try {
@@ -620,7 +597,7 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/mail/drafts/:id": {
       GET: async (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const id = (req as Request & { params: { id: string } }).params.id;
         if (!id) return json({ error: "id required" }, 400);
         const draft = getMailStore().getNode(id);
@@ -628,7 +605,7 @@ const server = Bun.serve<SocketData>({
         return json({ draft });
       },
       DELETE: async (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const id = (req as Request & { params: { id: string } }).params.id;
         if (!id) return json({ error: "id required" }, 400);
         try {
@@ -657,7 +634,7 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/mail/messages/:id": {
       GET: async (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const id = (req as Request & { params: { id: string } }).params.id;
         if (!id) return json({ error: "id required" }, 400);
         try {
@@ -673,7 +650,7 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/skills": {
       GET: (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         return json({
           skills: getSkills().map((skill) => ({
             id: skill.id,
@@ -685,13 +662,10 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/ask": {
       POST: async (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
-        let body: AskHttpRequest;
-        try {
-          body = (await req.json()) as AskHttpRequest;
-        } catch {
-          return json({ error: "Invalid JSON body" }, 400);
-        }
+        const denied = requireAuth(req); if (denied) return denied;
+        const parsed = await readJson<AskHttpRequest>(req);
+        if (!parsed.ok) return parsed.response;
+        const body = parsed.body;
         if (!body.text?.trim()) return json({ error: "text is required" }, 400);
         const job = startJob({
           clientId: body.clientId || newClientId(),
@@ -705,7 +679,7 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/jobs": {
       GET: (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const url = new URL(req.url);
         const status = url.searchParams.get("status") as
           | "queued"
@@ -726,7 +700,7 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/jobs/:id": {
       GET: (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const id = (req as Request & { params: { id: string } }).params.id;
         const job = jobs.get(id);
         if (!job) return json({ error: "Not found" }, 404);
@@ -735,7 +709,7 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/jobs/:id/events": {
       GET: (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const id = (req as Request & { params: { id: string } }).params.id;
         if (!jobs.get(id)) return json({ error: "Not found" }, 404);
         const url = new URL(req.url);
@@ -747,7 +721,7 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/logs": {
       GET: (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const url = new URL(req.url);
         const kind = url.searchParams.get("kind") as
           | "job"
@@ -768,7 +742,7 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/collect-error": {
       GET: async (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const url = new URL(req.url);
         const limit = Number(url.searchParams.get("limit") ?? 50);
         try {
@@ -783,13 +757,10 @@ const server = Bun.serve<SocketData>({
         }
       },
       POST: async (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
-        let body: CollectErrorInput;
-        try {
-          body = (await req.json()) as CollectErrorInput;
-        } catch {
-          return json({ error: "Invalid JSON body" }, 400);
-        }
+        const denied = requireAuth(req); if (denied) return denied;
+        const parsed = await readJson<CollectErrorInput>(req);
+        if (!parsed.ok) return parsed.response;
+        const body = parsed.body;
         const message = typeof body.message === "string" ? body.message.trim() : "";
         if (!message) return json({ error: "message is required" }, 400);
         try {
@@ -818,7 +789,7 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/collect-error/:id": {
       GET: async (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const id = (req as Request & { params: { id: string } }).params.id;
         try {
           const record = await errors.get(id);
@@ -835,7 +806,7 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/schedule": {
       GET: async (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const url = new URL(req.url);
         const status = url.searchParams.get("status") as
           | "pending"
@@ -855,13 +826,10 @@ const server = Bun.serve<SocketData>({
         });
       },
       POST: async (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
-        let body: ScheduleInput;
-        try {
-          body = (await req.json()) as ScheduleInput;
-        } catch {
-          return json({ error: "Invalid JSON body" }, 400);
-        }
+        const denied = requireAuth(req); if (denied) return denied;
+        const parsed = await readJson<ScheduleInput>(req);
+        if (!parsed.ok) return parsed.response;
+        const body = parsed.body;
         try {
           const task = await scheduler.schedule(body);
           return json({ task }, 201);
@@ -875,14 +843,14 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/schedule/:id": {
       GET: async (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const id = (req as Request & { params: { id: string } }).params.id;
         const task = await scheduler.get(id);
         if (!task) return json({ error: "Not found" }, 404);
         return json({ task });
       },
       DELETE: async (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const id = (req as Request & { params: { id: string } }).params.id;
         try {
           const task = await scheduler.cancel(id);
@@ -898,7 +866,7 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/watchers": {
       GET: (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const url = new URL(req.url);
         const status = url.searchParams.get("status") as WatcherStatus | null;
         const clientId = url.searchParams.get("clientId") ?? undefined;
@@ -912,13 +880,10 @@ const server = Bun.serve<SocketData>({
         });
       },
       POST: async (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
-        let body: WatcherInput;
-        try {
-          body = (await req.json()) as WatcherInput;
-        } catch {
-          return json({ error: "Invalid JSON body" }, 400);
-        }
+        const denied = requireAuth(req); if (denied) return denied;
+        const parsed = await readJson<WatcherInput>(req);
+        if (!parsed.ok) return parsed.response;
+        const body = parsed.body;
         try {
           const watcher = watchers.create(body);
           logs.append({
@@ -940,21 +905,18 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/watchers/:id": {
       GET: (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const id = (req as Request & { params: { id: string } }).params.id;
         const watcher = watchers.get(id);
         if (!watcher) return json({ error: "Not found" }, 404);
         return json({ watcher });
       },
       PATCH: async (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const id = (req as Request & { params: { id: string } }).params.id;
-        let body: Partial<WatcherInput> & { status?: WatcherStatus };
-        try {
-          body = (await req.json()) as Partial<WatcherInput> & { status?: WatcherStatus };
-        } catch {
-          return json({ error: "Invalid JSON body" }, 400);
-        }
+        const parsed = await readJson<Partial<WatcherInput> & { status?: WatcherStatus }>(req);
+        if (!parsed.ok) return parsed.response;
+        const body = parsed.body;
         const watcher = watchers.update(id, {
           ...body,
           ...(body.status === "active" ? { nextCheckAt: Date.now(), lastError: undefined } : {}),
@@ -963,7 +925,7 @@ const server = Bun.serve<SocketData>({
         return json({ watcher });
       },
       DELETE: (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const id = (req as Request & { params: { id: string } }).params.id;
         if (!watchers.delete(id)) return json({ error: "Not found" }, 404);
         return json({ ok: true });
@@ -971,7 +933,7 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/notify-queue": {
       GET: (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         const url = new URL(req.url);
         const status = url.searchParams.get("status") as
           | "pending"
@@ -990,7 +952,7 @@ const server = Bun.serve<SocketData>({
     },
     "/v1/presence": {
       GET: (req) => {
-        if (!authorize(extractBearer(req))) return json({ error: "Unauthorized" }, 401);
+        const denied = requireAuth(req); if (denied) return denied;
         return json({
           anyOnline: clients.anyOnline(),
           clients: clients.presenceSnapshot(),
