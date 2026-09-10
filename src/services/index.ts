@@ -24,6 +24,12 @@ export {
   sendMessage,
 } from "./gmail.client";
 export { getMailStore, MailStore, resetMailStoreForTests } from "./mail.store";
+export {
+  discardDraft,
+  sendDraft,
+  UnknownDraftError,
+} from "./mail.lifecycle";
+export type { SendDraftResult } from "./mail.lifecycle";
 export type { MailBoardPayload, MailNode, MailTemplate, RecentMailCard } from "./mail.types";
 export {
   cleanMailBody,
