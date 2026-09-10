@@ -7,7 +7,7 @@ import type {
   ServerToClientMessage,
 } from "./src/shared/agent";
 import { newClientId, newJobId } from "./src/shared/agent";
-import { config, publicOrigin } from "./src/config";
+import { config } from "./src/config";
 import { authorize, extractBearer, json, readJson, requireAuth } from "./src/http/auth";
 import { requestContext } from "./src/lib/request-context";
 import { getScheduler, type ScheduleInput } from "./src/scheduler";
@@ -42,8 +42,7 @@ import { ensureSolanaIndiaGrantsWatcher } from "./src/services/watcher.seeds";
 import { getWatcherStore, type WatcherInput, type WatcherStatus } from "./src/services/watcher.store";
 import { getSkills } from "./src/skills";
 import { renderMarkdown } from "./src/shared/markdown";
-import { previewWords, shouldUseCanvas } from "./src/shared/canvas";
-import { actionsFromText, pickBodyFormat, presentBody } from "./src/shared/widget";
+import { presentAnswer, presentError } from "./src/services/present-answer";
 
 if (!config.cloudflareAccountId || !config.cloudflareApiToken) {
   console.warn(
@@ -162,45 +161,13 @@ scheduler.setExecutor(async (task) => {
       source: "scheduler",
     });
     if (task.clientId) {
-      let widgetBody = body;
-      let canvasUrl: string | undefined;
-      const format = pickBodyFormat(body, {
-        canvas: shouldUseCanvas(body, config.canvasWordCap),
-      });
-      let actions = actionsFromText(body);
-      if (shouldUseCanvas(body, config.canvasWordCap)) {
-        const record = canvases.put({ markdown: body, title: task.title });
-        canvasUrl = `${publicOrigin()}/r/${record.id}`;
-        widgetBody = previewWords(body);
-        actions = [
-          {
-            id: "open_canvas",
-            label: "Open full answer",
-            kind: "link" as const,
-            url: canvasUrl,
-            style: "primary" as const,
-          },
-          ...actions.filter((a) => a.url !== canvasUrl),
-        ];
-      } else {
-        widgetBody = presentBody(body, format);
-      }
-      clients.send(task.clientId, {
-        type: "widget",
+      const presented = presentAnswer({
         jobId: task.id,
+        content: body,
         title: task.title,
-        body: widgetBody.slice(0, 1600),
-        kind: "answer",
-        format,
-        actions,
-        ...(canvasUrl ? { canvasUrl } : {}),
       });
-      clients.send(task.clientId, {
-        type: "notify",
-        jobId: task.id,
-        title: task.title,
-        body: body.slice(0, 180),
-      });
+      clients.send(task.clientId, presented.widget);
+      clients.send(task.clientId, presented.notify);
     }
 
     return { result: body };
@@ -216,13 +183,12 @@ scheduler.setExecutor(async (task) => {
       source: "scheduler",
     });
     if (task.clientId) {
-      clients.send(task.clientId, {
-        type: "widget",
+      const failed = presentError({
         jobId: task.id,
+        message,
         title: `${task.title} failed`,
-        body: message.slice(0, 800),
-        kind: "error",
       });
+      clients.send(task.clientId, failed.widget);
     }
     return { error: message };
   }
