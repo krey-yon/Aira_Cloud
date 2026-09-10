@@ -73,6 +73,7 @@ export function ErrorsSheet({ nav, onClose, onSelect }: Props) {
       title="Collected errors"
       eyebrow="Redis"
       onClose={onClose}
+      className="sheet-feed"
       actions={
         <CopyButton
           text={copyAllText}
@@ -84,56 +85,61 @@ export function ErrorsSheet({ nav, onClose, onSelect }: Props) {
     >
       {status === "loading" && <div className="status-line">Loading…</div>}
       {status === "error" && <div className="status-line">Error: {message}</div>}
-      {status === "ready" && (
+      {status === "ready" && records.length > 0 && (
         <div className="status-line">
-          {records.length === 0
-            ? "Waiting for extension and cloud agent failures."
-            : `${records.length} error${records.length === 1 ? "" : "s"}`}
+          {records.length} error{records.length === 1 ? "" : "s"}
         </div>
       )}
 
       {selected ? (
-        <div className="list">
-          <button type="button" className="btn" onClick={() => onSelect(null)}>
-            ← Back to list
+        <div className="feed">
+          <button type="button" className="feed-back" onClick={() => onSelect(null)}>
+            ← Back
           </button>
-          <div className="row is-selected log-row is-error">
-            <div className="row-title">
-              <span>{selected.code || selected.source || "error"}</span>
-              <span className="row-title-actions">
-                <span className="badge is-error">{selected.source || "redis"}</span>
-                <CopyButton text={copyPayload(selected)} label="Copy error" />
-              </span>
+          <article className="feed-detail is-error">
+            <div className="feed-meta">
+              <time dateTime={new Date(selected.createdAt).toISOString()}>
+                {formatRelativeTime(selected.createdAt)}
+              </time>
+              <span className="feed-kind is-error">{selected.source || "redis"}</span>
+              <CopyButton text={copyPayload(selected)} label="Copy" mode="label" />
             </div>
-            <div className="row-meta">{formatRelativeTime(selected.createdAt)}</div>
-            <pre className="log-body">{selected.message}</pre>
+            <h4 className="feed-title">{selected.code || selected.source || "error"}</h4>
+            <pre className="feed-body">{selected.message}</pre>
             {(selected.url || selected.jobId || selected.clientId) && (
-              <div className="row-meta">
-                {[selected.url, selected.jobId && `job: ${selected.jobId}`, selected.clientId && `client: ${selected.clientId}`]
+              <p className="feed-refs">
+                {[
+                  selected.url,
+                  selected.jobId && `job: ${selected.jobId}`,
+                  selected.clientId && `client: ${selected.clientId}`,
+                ]
                   .filter(Boolean)
                   .join(" · ")}
-              </div>
+              </p>
             )}
-            {selected.stack && <pre className="log-body is-stack">{selected.stack}</pre>}
-          </div>
+            {selected.stack ? <pre className="feed-body is-stack">{selected.stack}</pre> : null}
+          </article>
         </div>
       ) : records.length === 0 && status === "ready" ? (
-        <div className="empty">No Redis errors yet.</div>
+        <div className="empty">No collected errors yet.</div>
       ) : (
-        <div className="list">
+        <div className="feed" role="list">
           {records.map((event) => (
             <button
               key={event.id}
               type="button"
-              className="row log-row is-error"
+              role="listitem"
+              className="feed-item is-error"
               onClick={() => onSelect(event.id)}
             >
-              <div className="row-title">
-                <span>{event.code || event.source || "error"}</span>
-                <span className="badge is-error">{event.source || "redis"}</span>
+              <div className="feed-meta">
+                <time dateTime={new Date(event.createdAt).toISOString()}>
+                  {formatRelativeTime(event.createdAt)}
+                </time>
+                <span className="feed-kind is-error">{event.source || "redis"}</span>
               </div>
-              <div className="row-meta">{formatRelativeTime(event.createdAt)}</div>
-              <div className="row-body">{event.message.slice(0, 180)}</div>
+              <div className="feed-title">{event.code || event.source || "error"}</div>
+              <div className="feed-excerpt">{event.message}</div>
             </button>
           ))}
         </div>

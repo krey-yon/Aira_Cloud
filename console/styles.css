@@ -83,18 +83,21 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
 
 .canvas-aurora {
   background:
-    radial-gradient(ellipse 62% 52% at 10% -8%, color-mix(in oklab, #3d5a4c 22%, transparent), transparent 66%),
-    radial-gradient(ellipse 50% 42% at 92% 8%, color-mix(in oklab, #4a5d6e 16%, transparent), transparent 68%),
-    radial-gradient(ellipse 46% 40% at 72% 108%, color-mix(in oklab, #2f6f62 14%, transparent), transparent 68%),
-    linear-gradient(145deg, color-mix(in oklab, var(--color-paper) 90%, #12161c), var(--color-paper));
+    radial-gradient(ellipse 70% 55% at 12% -6%, color-mix(in oklab, #3a5248 28%, transparent), transparent 62%),
+    radial-gradient(ellipse 55% 48% at 88% 4%, color-mix(in oklab, #3d4f5c 20%, transparent), transparent 64%),
+    radial-gradient(ellipse 50% 42% at 68% 110%, color-mix(in oklab, #2a5a52 18%, transparent), transparent 66%),
+    linear-gradient(155deg,
+      color-mix(in oklab, #0c1014 70%, #1a2228),
+      var(--color-paper) 48%,
+      color-mix(in oklab, var(--color-paper) 85%, #12181c));
 }
 
 html[data-theme="light"] .canvas-aurora {
   background:
-    radial-gradient(ellipse 58% 50% at 6% -4%, color-mix(in oklab, #6f8f7e 14%, transparent), transparent 67%),
-    radial-gradient(ellipse 48% 42% at 96% 6%, color-mix(in oklab, #7a8b9a 10%, transparent), transparent 69%),
-    radial-gradient(ellipse 50% 42% at 70% 108%, color-mix(in oklab, #4f9a88 10%, transparent), transparent 70%),
-    linear-gradient(145deg, #f6f7f5, var(--color-paper));
+    radial-gradient(ellipse 62% 52% at 8% -4%, color-mix(in oklab, #7a9586 18%, transparent), transparent 64%),
+    radial-gradient(ellipse 52% 44% at 94% 8%, color-mix(in oklab, #8494a3 12%, transparent), transparent 66%),
+    radial-gradient(ellipse 48% 40% at 70% 108%, color-mix(in oklab, #5fa090 12%, transparent), transparent 68%),
+    linear-gradient(155deg, #eef1ee, var(--color-paper) 52%, #f3f4f2);
 }
 
 .canvas-vignette {
@@ -103,8 +106,8 @@ html[data-theme="light"] .canvas-aurora {
   inset: 0;
   z-index: 0;
   background:
-    linear-gradient(180deg, color-mix(in oklab, var(--color-paper) 32%, transparent), transparent 18%, transparent 78%, color-mix(in oklab, var(--color-paper) 48%, transparent)),
-    radial-gradient(ellipse at center, transparent 46%, color-mix(in oklab, var(--color-paper) 44%, transparent) 100%);
+    linear-gradient(180deg, color-mix(in oklab, var(--color-paper) 38%, transparent), transparent 20%, transparent 76%, color-mix(in oklab, var(--color-paper) 52%, transparent)),
+    radial-gradient(ellipse at center, transparent 42%, color-mix(in oklab, var(--color-paper) 48%, transparent) 100%);
 }
 
 .noise-overlay {
@@ -112,16 +115,18 @@ html[data-theme="light"] .canvas-aurora {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='.7'/%3E%3C/svg%3E");
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Crect width='8' height='8' fill='%23000'/%3E%3Ccircle cx='1' cy='1' r='0.75' fill='%23fff'/%3E%3Ccircle cx='5' cy='3' r='0.75' fill='%23fff'/%3E%3Ccircle cx='3' cy='5' r='0.75' fill='%23fff'/%3E%3Ccircle cx='7' cy='7' r='0.75' fill='%23fff'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 8px 8px, 220px 220px;
   background-repeat: repeat;
-  background-size: 180px 180px;
-  mix-blend-mode: soft-light;
-  opacity: 0.075;
+  mix-blend-mode: overlay;
+  opacity: 0.22;
 }
 
 html[data-theme="light"] .noise-overlay {
   mix-blend-mode: multiply;
-  opacity: 0.035;
+  opacity: 0.14;
 }
 
 .glass {
@@ -931,6 +936,138 @@ html[data-theme="light"] .glass {
   max-height: min(36vh, 280px);
 }
 
+/* Minimal feed for agent log + collected errors */
+.sheet-feed .sheet-body {
+  padding-top: 0.5rem;
+}
+
+.feed {
+  display: flex;
+  flex-direction: column;
+}
+
+.feed-back {
+  align-self: flex-start;
+  margin: 0 0 0.75rem;
+  font-size: 11px;
+  color: var(--color-ink-500);
+}
+
+.feed-back:hover {
+  color: var(--color-ink-800);
+}
+
+.feed-item {
+  width: 100%;
+  text-align: left;
+  padding: 0.7rem 0.15rem;
+  border: 0;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-ink-900) 7%, transparent);
+  background: transparent;
+  border-radius: 0;
+  transition: background 140ms ease;
+}
+
+.feed-item:last-child {
+  border-bottom: 0;
+}
+
+.feed-item:hover {
+  background: color-mix(in oklab, var(--color-ink-900) 3.5%, transparent);
+}
+
+.feed-item:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--color-action) 55%, white);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.feed-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.2rem;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+  line-height: 1.3;
+}
+
+.feed-kind {
+  color: var(--color-ink-600);
+}
+
+.feed-kind.is-error { color: #ff758f; }
+.feed-kind.is-thinking { color: #b8a48a; }
+.feed-kind.is-tool,
+.feed-kind.is-job { color: var(--color-accent-emerald); }
+
+.feed-title {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 550;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+  color: var(--color-ink-900);
+}
+
+.feed-excerpt {
+  margin-top: 0.2rem;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--color-ink-600);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.feed-detail {
+  padding: 0.15rem 0 0.5rem;
+}
+
+.feed-detail .feed-title {
+  font-size: 14px;
+  margin-bottom: 0.55rem;
+}
+
+.feed-body {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink-800);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: min(48vh, 360px);
+  overflow: auto;
+}
+
+.feed-body.is-stack {
+  margin-top: 0.75rem;
+  opacity: 0.78;
+  font-size: 10px;
+  max-height: min(32vh, 240px);
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in oklab, var(--color-ink-900) 8%, transparent);
+}
+
+.feed-refs {
+  margin: 0.65rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+  line-height: 1.4;
+}
+
 .mail-board {
   position: relative;
   flex: 1;
@@ -1146,14 +1283,6 @@ html[data-theme="light"] .glass {
   margin: 0.5rem 0.25rem;
   font-size: 12px;
   color: var(--color-ink-500);
-}
-
-.mail-idle-hint {
-  margin: 0.15rem 0 0;
-  text-align: center;
-  font-size: 12px;
-  color: var(--color-ink-500);
-  pointer-events: none;
 }
 
 .mail-toast {

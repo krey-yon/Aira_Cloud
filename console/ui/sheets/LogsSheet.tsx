@@ -68,6 +68,7 @@ export function LogsSheet({ nav, onClose, onSelect, onFilter }: Props) {
       title="Agent log"
       eyebrow="Live"
       onClose={onClose}
+      className="sheet-feed"
       actions={
         <CopyButton
           text={copyAllText}
@@ -94,49 +95,43 @@ export function LogsSheet({ nav, onClose, onSelect, onFilter }: Props) {
       {state.status === "error" && <div className="status-line">Error: {state.message}</div>}
 
       {selected ? (
-        <div className="list">
-          <button type="button" className="btn" onClick={() => onSelect(null)}>
-            ← Back to list
+        <div className="feed">
+          <button type="button" className="feed-back" onClick={() => onSelect(null)}>
+            ← Back
           </button>
-          <div className={`row is-selected log-row is-${toneFor(selected)}`}>
-            <div className="row-title">
-              <span>{selected.title}</span>
-              <span className="row-title-actions">
-                <span className={`badge is-${toneFor(selected)}`}>{badgeLabel(selected)}</span>
-                <CopyButton text={copyPayload(selected)} label="Copy log" />
-              </span>
+          <article className={`feed-detail is-${toneFor(selected)}`}>
+            <div className="feed-meta">
+              <time dateTime={new Date(selected.at).toISOString()}>{formatTime(selected.at)}</time>
+              <span className={`feed-kind is-${toneFor(selected)}`}>{badgeLabel(selected)}</span>
+              <CopyButton text={copyPayload(selected)} label="Copy" mode="label" />
             </div>
-            <div className="row-meta">{formatTime(selected.at)}</div>
-            <pre className="log-body">{selected.body || "(empty)"}</pre>
-            {(selected.jobId || selected.source) && (
-              <div className="row-meta">
+            <h4 className="feed-title">{selected.title}</h4>
+            <pre className="feed-body">{selected.body || "(empty)"}</pre>
+            {(selected.jobId || selected.source || selected.clientId) && (
+              <p className="feed-refs">
                 {[selected.jobId, selected.source, selected.clientId].filter(Boolean).join(" · ")}
-              </div>
+              </p>
             )}
-          </div>
+          </article>
         </div>
       ) : events.length === 0 && state.status === "ready" ? (
         <div className="empty">No agent activity yet.</div>
       ) : (
-        <div className="list">
+        <div className="feed" role="list">
           {events.map((event) => (
             <button
               key={event.id}
               type="button"
-              className={`row log-row is-${toneFor(event)}`}
+              role="listitem"
+              className={`feed-item is-${toneFor(event)}`}
               onClick={() => onSelect(event.id)}
             >
-              <div className="row-title">
-                <span>{event.title}</span>
-                <span className="row-title-actions">
-                  <span className={`badge is-${toneFor(event)}`}>{badgeLabel(event)}</span>
-                  {(event.level === "error" || event.kind === "error") && (
-                    <CopyButton text={copyPayload(event)} label="Copy error" />
-                  )}
-                </span>
+              <div className="feed-meta">
+                <time dateTime={new Date(event.at).toISOString()}>{formatTime(event.at)}</time>
+                <span className={`feed-kind is-${toneFor(event)}`}>{badgeLabel(event)}</span>
               </div>
-              <div className="row-meta">{formatTime(event.at)}</div>
-              <div className="row-body">{event.body.slice(0, 160)}</div>
+              <div className="feed-title">{event.title}</div>
+              {event.body ? <div className="feed-excerpt">{event.body}</div> : null}
             </button>
           ))}
         </div>

@@ -50,11 +50,6 @@ export function MailBoard({ enabled, connected }: Props) {
     }
   };
 
-  const empty =
-    board.drafts.length === 0 &&
-    board.scheduled.length === 0 &&
-    board.recent.length === 0;
-
   const recentIdle = error
     ? error
     : connected
@@ -142,12 +137,6 @@ export function MailBoard({ enabled, connected }: Props) {
           </div>
         </section>
       </div>
-
-      {empty && !error && !loading && (
-        <p className="mail-idle-hint">
-          Draft with Aira, then manage sends here.
-        </p>
-      )}
 
       <MailToast message={message} />
       <MailReaderModal
