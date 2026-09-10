@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { config } from "../config";
+import { createSingleton, openSqlite } from "../persist/sqlite";
 import {
   fillTemplate,
   newMailId,
@@ -82,7 +83,7 @@ export class MailStore {
   private readonly db: Database;
 
   constructor(dbPath = config.mailDbPath) {
-    this.db = new Database(dbPath, { create: true });
+    this.db = openSqlite(dbPath, { wal: false });
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS mail_templates (
         id TEXT PRIMARY KEY,
@@ -333,13 +334,12 @@ export class MailStore {
   }
 }
 
-let singleton: MailStore | null = null;
+const mailStore = createSingleton(() => new MailStore());
 
 export function getMailStore(): MailStore {
-  if (!singleton) singleton = new MailStore();
-  return singleton;
+  return mailStore.get();
 }
 
 export function resetMailStoreForTests(): void {
-  singleton = null;
+  mailStore.reset();
 }
