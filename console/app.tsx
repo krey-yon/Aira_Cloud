@@ -6,10 +6,10 @@ import {
   getToken,
   probeAuth,
 } from "./api/client";
-import { useTheme } from "./hooks/useTheme";
-import { useConsoleNav } from "./state/useConsoleNav";
-import { AuthGate } from "./ui/AuthGate";
-import { ConsoleStage } from "./ui/ConsoleStage";
+import { useTheme } from "./shell/useTheme";
+import { useConsoleNav } from "./shell/useConsoleNav";
+import { AuthGate } from "./shell/AuthGate";
+import { ConsoleStage } from "./shell/ConsoleStage";
 
 ensureTokenFromUrl();
 

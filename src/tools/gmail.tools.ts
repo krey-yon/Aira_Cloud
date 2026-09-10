@@ -6,12 +6,12 @@ import {
   getMessage,
   listMessages,
   sendMessage,
-} from "../services/gmail.client";
-import { gmailStatus } from "../services/gmail.oauth";
-import { discardDraft, sendDraft } from "../services/mail.lifecycle";
-import { getMailStore } from "../services/mail.store";
+} from "../gmail/gmail.client";
+import { gmailStatus } from "../gmail/gmail.oauth";
+import { discardDraft, sendDraft } from "../mail/mail.lifecycle";
+import { getMailStore } from "../mail/mail.store";
 import { getScheduler } from "../scheduler";
-import { getRequestContext } from "../lib/request-context";
+import { getRequestContext } from "../realtime/request-context";
 
 function fail(error: unknown) {
   return {

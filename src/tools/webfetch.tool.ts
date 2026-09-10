@@ -2,8 +2,8 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import { config } from "../config";
-import { callExaMcp } from "../lib/exa";
-import { scrapeWithFirecrawl } from "../lib/firecrawl";
+import { callExaMcp } from "../integrations/exa";
+import { scrapeWithFirecrawl } from "../integrations/firecrawl";
 
 function normalizeUrl(raw: string): string {
   const trimmed = raw.trim();

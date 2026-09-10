@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { askUser } from "../services/question.bridge";
+import { askUser } from "../questions/question.bridge";
 
 export const askUserTool = tool({
   description:

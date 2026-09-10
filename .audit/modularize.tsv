@@ -1,0 +1,10 @@
+ts	phase	decision	why	evidence	result
+2026-09-10T06:10:57Z	frame	done when bun test stays green and domains live in named folders not a flat services bag	reader load is the success measure	bun test: 60 pass baseline	open
+2026-09-10T06:10:57Z	design	units: delete dead then domain folders then http extract then console panels then lib shrink	riskiest unknown first would be import breakage so pin tests before each unit	.audit/modularize.tsv	open
+2026-09-10T06:11:23Z	subtract	deleted unused services barrel GmailCard and console aira-mark svg plus gmail-card css	subtract before add	console/ui/GmailCard.tsx removed	pending verify
+2026-09-10T06:14:19Z	unit2	moved flat services into mail gmail watchers agent canvas questions realtime observability	domain folders match import coupling	bun test 60 pass	tests green
+2026-09-10T06:24:21Z	unit3	extracted routes ws canvas page scheduler executor from index.ts	composition root only in index	index.ts 102 lines bun test 60	tests green
+2026-09-10T06:24:21Z	unit4	console shell and panels layout	panel equals feature folder	bun build console 45 modules	tests green
+2026-09-10T06:24:21Z	unit5	moved lib and types into agent realtime integrations	lib was a junk drawer	bun test 60	tests green
+2026-09-10T06:24:21Z	subtract	verified dead GmailCard barrel aira-mark and gmail-card css gone	subtract before add	rg GmailCard empty	tests green
+2026-09-10T06:27:21Z	verify	smoked /health / /v1/skills /r/missing on live server port 18991	prove on real artifact not compile only	/tmp/aira-smoke.log	VERIFIED
