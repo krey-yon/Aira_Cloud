@@ -8,6 +8,7 @@ import {
   sendMessage,
 } from "../services/gmail.client";
 import { gmailStatus } from "../services/gmail.oauth";
+import { discardDraft, sendDraft } from "../services/mail.lifecycle";
 import { getMailStore } from "../services/mail.store";
 import { getScheduler } from "../scheduler";
 import { getRequestContext } from "../lib/request-context";
@@ -206,21 +207,8 @@ export const gmailDraftDiscardTool = tool({
   inputSchema: z.object({ id: z.string().min(1) }),
   execute: async ({ id }) => {
     try {
-      const store = getMailStore();
-      const node = store.getNode(id);
-      if (!node) throw new Error(`Unknown draft: ${id}`);
-      if (node.scheduleTaskId && node.status === "scheduled") {
-        try {
-          await getScheduler().cancel(node.scheduleTaskId);
-        } catch {
-          // Task may already be gone.
-        }
-      }
-      const next = store.setStatus(
-        id,
-        node.status === "scheduled" ? "cancelled" : "discarded",
-      );
-      return { ok: true as const, draft: next };
+      const draft = await discardDraft(id);
+      return { ok: true as const, draft };
     } catch (err) {
       return fail(err);
     }
@@ -232,33 +220,21 @@ export const gmailDraftSendNowTool = tool({
   inputSchema: z.object({ id: z.string().min(1) }),
   execute: async ({ id }) => {
     try {
-      const store = getMailStore();
-      const node = store.getNode(id);
-      if (!node) throw new Error(`Unknown draft: ${id}`);
-      if (node.status === "sent") {
+      const result = await sendDraft(id);
+      if (result.alreadySent) {
         return {
           ok: true as const,
           alreadySent: true,
-          id: node.gmailMessageId,
-          draft: node,
+          id: result.draft.gmailMessageId,
+          draft: result.draft,
         };
       }
-      if (node.scheduleTaskId && node.status === "scheduled") {
-        try {
-          await getScheduler().cancel(node.scheduleTaskId);
-        } catch {
-          // ignore
-        }
-      }
-      const sent = await sendMessage({
-        to: node.to,
-        cc: node.cc,
-        bcc: node.bcc,
-        subject: node.subject,
-        body: node.body,
-      });
-      const draft = store.setStatus(id, "sent", { gmailMessageId: sent.id });
-      return { ok: true as const, id: sent.id, threadId: sent.threadId, draft };
+      return {
+        ok: true as const,
+        id: result.sent.id,
+        threadId: result.sent.threadId,
+        draft: result.draft,
+      };
     } catch (err) {
       return fail(err);
     }

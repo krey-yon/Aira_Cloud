@@ -25,7 +25,8 @@ import {
   gmailStatus,
 } from "./src/services/gmail.oauth";
 import { getGmailStore } from "./src/services/gmail.store";
-import { getMessage, listMessagePreviews, sendMessage } from "./src/services/gmail.client";
+import { getMessage, listMessagePreviews } from "./src/services/gmail.client";
+import { discardDraft, sendDraft, UnknownDraftError } from "./src/services/mail.lifecycle";
 import { getMailStore } from "./src/services/mail.store";
 import {
   pickRecentCards,
@@ -101,21 +102,11 @@ scheduler.setExecutor(async (task) => {
       typeof task.metadata?.draftId === "string" ? task.metadata.draftId : null;
 
     if (mailAction === "send_draft" && draftId) {
-      const store = getMailStore();
-      const node = store.getNode(draftId);
-      if (!node) throw new Error(`Unknown draft: ${draftId}`);
-      if (node.status === "sent") {
+      const sentDraft = await sendDraft(draftId);
+      if (sentDraft.alreadySent) {
         return { result: `Already sent draft ${draftId}` };
       }
-      const sent = await sendMessage({
-        to: node.to,
-        cc: node.cc,
-        bcc: node.bcc,
-        subject: node.subject,
-        body: node.body,
-      });
-      store.setStatus(draftId, "sent", { gmailMessageId: sent.id });
-      const body = `Sent “${node.subject}” to ${node.to.join(", ")}`;
+      const body = `Sent “${sentDraft.draft.subject}” to ${sentDraft.draft.to.join(", ")}`;
       logs.append({
         kind: "job",
         level: "info",
@@ -565,29 +556,15 @@ const server = Bun.serve<SocketData>({
         const id = (req as Request & { params: { id: string } }).params.id;
         if (!id) return json({ error: "id required" }, 400);
         try {
-          const store = getMailStore();
-          const node = store.getNode(id);
-          if (!node) return json({ error: "Unknown draft" }, 404);
-          if (node.status === "sent") {
-            return json({ ok: true, alreadySent: true, draft: node });
+          const result = await sendDraft(id);
+          if (result.alreadySent) {
+            return json({ ok: true, alreadySent: true, draft: result.draft });
           }
-          if (node.scheduleTaskId && node.status === "scheduled") {
-            try {
-              await scheduler.cancel(node.scheduleTaskId);
-            } catch {
-              // ignore
-            }
-          }
-          const sent = await sendMessage({
-            to: node.to,
-            cc: node.cc,
-            bcc: node.bcc,
-            subject: node.subject,
-            body: node.body,
-          });
-          const draft = store.setStatus(id, "sent", { gmailMessageId: sent.id });
-          return json({ ok: true, id: sent.id, draft });
+          return json({ ok: true, id: result.sent.id, draft: result.draft });
         } catch (err) {
+          if (err instanceof UnknownDraftError) {
+            return json({ error: "Unknown draft" }, 404);
+          }
           return json(
             { error: err instanceof Error ? err.message : String(err) },
             500,
@@ -609,22 +586,12 @@ const server = Bun.serve<SocketData>({
         const id = (req as Request & { params: { id: string } }).params.id;
         if (!id) return json({ error: "id required" }, 400);
         try {
-          const store = getMailStore();
-          const node = store.getNode(id);
-          if (!node) return json({ error: "Unknown draft" }, 404);
-          if (node.scheduleTaskId && node.status === "scheduled") {
-            try {
-              await scheduler.cancel(node.scheduleTaskId);
-            } catch {
-              // ignore
-            }
-          }
-          const draft = store.setStatus(
-            id,
-            node.status === "scheduled" ? "cancelled" : "discarded",
-          );
+          const draft = await discardDraft(id);
           return json({ ok: true, draft });
         } catch (err) {
+          if (err instanceof UnknownDraftError) {
+            return json({ error: "Unknown draft" }, 404);
+          }
           return json(
             { error: err instanceof Error ? err.message : String(err) },
             500,
