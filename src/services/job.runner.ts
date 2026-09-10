@@ -1,23 +1,16 @@
-import type { PageContext, WidgetAction, WidgetKind } from "../shared/agent";
+import type { PageContext } from "../shared/agent";
 import { extractAskUser } from "../shared/ask-user-parse";
-import { previewWords, shouldUseCanvas } from "../shared/canvas";
 import {
   scheduleToolSucceeded,
   wantsSchedule,
 } from "../shared/schedule-intent";
-import {
-  actionsFromText,
-  pickBodyFormat,
-  presentBody,
-} from "../shared/widget";
-import { config, publicOrigin } from "../config";
 import { requestContext } from "../lib/request-context";
 import type { AgentRequest } from "../types";
 import { AgentService } from "./agent.service";
-import { getCanvasStore } from "./canvas.store";
 import type { ClientRegistry } from "./client.registry";
 import type { JobRecord, JobStore } from "./job.store";
 import { getLogRing } from "./log.ring";
+import { presentAnswer, presentError } from "./present-answer";
 import { askUser } from "./question.bridge";
 
 function buildUserContent(text: string, pageContext?: PageContext): string {
@@ -76,7 +69,6 @@ function summarizeToolResult(name: string, result: unknown): string {
 export class JobRunner {
   private readonly queue: string[] = [];
   private readonly logs = getLogRing();
-  private readonly canvases = getCanvasStore();
   private running = false;
 
   constructor(
@@ -166,40 +158,14 @@ export class JobRunner {
   }
 
   private presentAnswer(job: JobRecord, content: string, title = "Aira") {
-    const raw = content.trim() || "Done.";
-    const useCanvas = shouldUseCanvas(raw, config.canvasWordCap);
-    const format = pickBodyFormat(raw, { canvas: useCanvas });
-    let widgetBody = presentBody(raw, format);
-    let canvasUrl: string | undefined;
-    let kind: WidgetKind = "answer";
-    let actions: WidgetAction[] = actionsFromText(raw);
-
-    if (useCanvas) {
-      const record = this.canvases.put({ markdown: raw, title });
-      canvasUrl = `${publicOrigin()}/r/${record.id}`;
-      widgetBody = previewWords(raw);
-      actions = [
-        {
-          id: "open_canvas",
-          label: "Open full answer",
-          kind: "link",
-          url: canvasUrl,
-          style: "primary",
-        },
-        ...actions.filter((a) => a.url !== canvasUrl),
-      ];
-    }
-
-    this.emit(job, {
-      type: "widget",
+    const presented = presentAnswer({
       jobId: job.id,
+      content,
       title,
-      body: widgetBody.slice(0, 1600),
-      kind,
-      format,
-      actions,
-      ...(canvasUrl ? { canvasUrl } : {}),
+      notifyTitle: "Aira finished",
     });
+    this.emit(job, presented.widget);
+    return presented;
   }
 
   private async runOne(job: JobRecord) {
@@ -316,22 +282,16 @@ export class JobRunner {
         ]
           .join("\n")
           .trim();
-        this.presentAnswer(job, followUp || `Got “${choice}”.`);
+        const presented = this.presentAnswer(job, followUp || `Got “${choice}”.`);
         this.emit(job, {
-          type: "notify",
-          jobId: job.id,
+          ...presented.notify,
           title: "Aira finished",
           body: (followUp || choice).slice(0, 180),
         });
       } else {
         const body = content.trim() || "Done.";
-        this.presentAnswer(job, body);
-        this.emit(job, {
-          type: "notify",
-          jobId: job.id,
-          title: "Aira finished",
-          body: body.slice(0, 180),
-        });
+        const presented = this.presentAnswer(job, body);
+        this.emit(job, presented.notify);
       }
 
       this.emit(job, { type: "status", jobId: job.id, status: "done" });
@@ -340,21 +300,9 @@ export class JobRunner {
       this.jobs.update(job.id, { status: "error", error: message });
       this.note(job, "error", message);
       this.emit(job, { type: "error", jobId: job.id, message });
-      this.emit(job, {
-        type: "widget",
-        jobId: job.id,
-        title: "Aira failed",
-        body: message.slice(0, 800),
-        kind: "error",
-        format: "plain",
-        actions: [{ id: "dismiss", label: "Dismiss", kind: "dismiss", style: "secondary" }],
-      });
-      this.emit(job, {
-        type: "notify",
-        jobId: job.id,
-        title: "Aira failed",
-        body: message.slice(0, 180),
-      });
+      const failed = presentError({ jobId: job.id, message });
+      this.emit(job, failed.widget);
+      this.emit(job, failed.notify);
       this.emit(job, { type: "status", jobId: job.id, status: "error" });
     }
   }

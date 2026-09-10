@@ -30,6 +30,7 @@ export {
   UnknownDraftError,
 } from "./mail.lifecycle";
 export type { SendDraftResult } from "./mail.lifecycle";
+export { presentAnswer, presentError } from "./present-answer";
 export type { MailBoardPayload, MailNode, MailTemplate, RecentMailCard } from "./mail.types";
 export {
   cleanMailBody,
