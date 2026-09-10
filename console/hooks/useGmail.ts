@@ -69,3 +69,5 @@ export function useGmail(enabled: boolean) {
 
   return { status, error, busy, connect, disconnect, refresh };
 }
+
+export type GmailApi = ReturnType<typeof useGmail>;

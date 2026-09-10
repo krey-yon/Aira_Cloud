@@ -3,9 +3,9 @@ import { useGmail } from "../hooks/useGmail";
 import { BrandPill } from "./BrandPill";
 import { Dock } from "./Dock";
 import { LogoutButton } from "./LogoutButton";
-import { MailBoard } from "./mail/MailBoard";
 import { ErrorsSheet } from "./sheets/ErrorsSheet";
 import { LogsSheet } from "./sheets/LogsSheet";
+import { MailSheet } from "./sheets/MailSheet";
 import { ScheduleSheet } from "./sheets/ScheduleSheet";
 import { WatchersSheet } from "./sheets/WatchersSheet";
 
@@ -22,10 +22,11 @@ type Props = {
 };
 
 function subtitleFor(nav: ConsoleNav, gmailEmail: string | null): string {
-  if (nav.panel === "idle") return gmailEmail ? gmailEmail : "mail";
+  if (nav.panel === "idle") return "console";
   if (nav.panel === "logs") return "agent log";
   if (nav.panel === "schedule") return "schedule";
   if (nav.panel === "errors") return "errors";
+  if (nav.panel === "mail") return gmailEmail ? gmailEmail : "mail";
   return nav.draft ? "watchers · draft" : "watchers";
 }
 
@@ -42,7 +43,6 @@ export function ConsoleStage({
 }: Props) {
   const active = nav.panel === "idle" ? null : nav.panel;
   const gmail = useGmail(true);
-  const showMail = nav.panel === "idle";
 
   return (
     <main className="stage canvas-aurora">
@@ -55,7 +55,7 @@ export function ConsoleStage({
       <BrandPill subtitle={subtitleFor(nav, gmail.status?.email ?? null)} />
       <LogoutButton onLogout={onLogout} />
 
-      {showMail && <MailBoard enabled />}
+      {nav.panel === "mail" && <MailSheet gmail={gmail} onClose={onClose} />}
 
       {nav.panel === "logs" && (
         <LogsSheet nav={nav} onClose={onClose} onSelect={onSelect} onFilter={onFilter} />
@@ -76,10 +76,6 @@ export function ConsoleStage({
         onToggleTheme={onToggleTheme}
         theme={theme}
         gmailConnected={Boolean(gmail.status?.connected)}
-        onGmail={() => {
-          if (gmail.status?.connected) void gmail.disconnect();
-          else gmail.connect();
-        }}
       />
 
       <div className="hint glass">⌘⇧L theme · Esc closes</div>

@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import {
   useMailBoard,
   type MailDraft,
-  type RecentMail,
+  type RecentMailCard,
+  type RecentMailMessage,
 } from "../../hooks/useMailBoard";
 import { MailDraftCard, MailRecentCard } from "./MailCard";
 import { MailReaderModal } from "./MailReaderModal";
@@ -10,33 +11,42 @@ import { MailToast, useMailToast } from "./MailToast";
 
 type Reader =
   | { kind: "draft" | "scheduled"; data: MailDraft }
-  | { kind: "recent"; data: RecentMail }
+  | { kind: "recent"; data: RecentMailMessage }
   | null;
 
 type Props = {
   enabled: boolean;
+  connected?: boolean;
 };
 
-export function MailBoard({ enabled }: Props) {
-  const { board, error, busy, sendNow, discard, loadMessage } = useMailBoard(enabled);
+function laneCopy(loading: boolean, count: number, idle: string) {
+  if (count > 0) return null;
+  return loading ? "Loading…" : idle;
+}
+
+export function MailBoard({ enabled, connected }: Props) {
+  const { board, error, busy, loading, sendNow, discard, loadMessage } = useMailBoard(enabled);
   const { message, push } = useMailToast();
   const [reader, setReader] = useState<Reader>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setReader(null);
+      if (e.key !== "Escape" || !reader) return;
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      setReader(null);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [reader]);
 
-  const openRecent = async (item: RecentMail) => {
-    setReader({ kind: "recent", data: item });
+  const openRecent = async (item: RecentMailCard) => {
+    setReader({ kind: "recent", data: { ...item, body: "" } });
     try {
       const full = await loadMessage(item.id);
-      setReader({ kind: "recent", data: { ...item, body: full.body || item.body } });
+      setReader({ kind: "recent", data: { ...item, body: full.body || "" } });
     } catch {
-      // Keep snippet body.
+      setReader({ kind: "recent", data: { ...item, body: item.preview || "(couldn't load)" } });
     }
   };
 
@@ -44,6 +54,15 @@ export function MailBoard({ enabled }: Props) {
     board.drafts.length === 0 &&
     board.scheduled.length === 0 &&
     board.recent.length === 0;
+
+  const recentIdle = error
+    ? error
+    : connected
+      ? "No recent mail"
+      : "Connect Gmail to load recent mail";
+  const draftsEmpty = laneCopy(loading, board.drafts.length, "No drafts yet");
+  const scheduledEmpty = laneCopy(loading, board.scheduled.length, "Nothing scheduled");
+  const recentEmpty = laneCopy(loading, board.recent.length, recentIdle);
 
   return (
     <>
@@ -74,9 +93,7 @@ export function MailBoard({ enabled }: Props) {
                 />
               </div>
             ))}
-            {board.drafts.length === 0 && (
-              <p className="mail-empty">No drafts yet</p>
-            )}
+            {draftsEmpty ? <p className="mail-empty">{draftsEmpty}</p> : null}
           </div>
         </section>
 
@@ -106,9 +123,7 @@ export function MailBoard({ enabled }: Props) {
                 />
               </div>
             ))}
-            {board.scheduled.length === 0 && (
-              <p className="mail-empty">Nothing scheduled</p>
-            )}
+            {scheduledEmpty ? <p className="mail-empty">{scheduledEmpty}</p> : null}
           </div>
         </section>
 
@@ -123,19 +138,15 @@ export function MailBoard({ enabled }: Props) {
                 <MailRecentCard item={item} onOpen={() => void openRecent(item)} />
               </div>
             ))}
-            {board.recent.length === 0 && (
-              <p className="mail-empty">
-                {error ? error : "Connect Gmail to load recent mail"}
-              </p>
-            )}
+            {recentEmpty ? <p className="mail-empty">{recentEmpty}</p> : null}
           </div>
         </section>
       </div>
 
-      {empty && !error && (
-        <div className="mail-idle-hint">
-          Draft with Aira, then manage sends here. Dock stays below.
-        </div>
+      {empty && !error && !loading && (
+        <p className="mail-idle-hint">
+          Draft with Aira, then manage sends here.
+        </p>
       )}
 
       <MailToast message={message} />

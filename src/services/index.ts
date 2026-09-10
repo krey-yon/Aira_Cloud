@@ -21,8 +21,20 @@ export {
   buildRawMime,
   connectedAccountEmail,
   getMessage,
+  listMessagePreviews,
   listMessages,
   sendMessage,
 } from "./gmail.client";
 export { getMailStore, MailStore, resetMailStoreForTests } from "./mail.store";
-export type { MailBoardPayload, MailNode, MailTemplate } from "./mail.types";
+export type { MailBoardPayload, MailNode, MailTemplate, RecentMailCard } from "./mail.types";
+export {
+  cleanMailBody,
+  cleanMailPreview,
+  displayFrom,
+  isLikelyPromo,
+  pickRecentCards,
+  PREVIEW_MAX_CHARS,
+  RECENT_CARD_LIMIT,
+  RECENT_FETCH_WINDOW,
+  RECENT_INBOX_QUERY,
+} from "./mail.preview";

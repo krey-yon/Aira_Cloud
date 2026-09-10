@@ -245,6 +245,7 @@ html[data-theme="light"] .glass {
 }
 
 .dock-btn {
+  position: relative;
   display: grid;
   height: 2.25rem;
   width: 2.25rem;
@@ -277,6 +278,17 @@ html[data-theme="light"] .glass {
   background: color-mix(in oklab, var(--color-action) 12%, transparent);
   border-color: color-mix(in oklab, var(--color-action) 28%, transparent);
   box-shadow: inset 0 1px 0 color-mix(in oklab, white 8%, transparent);
+}
+
+.dock-pip {
+  position: absolute;
+  top: 0.28rem;
+  right: 0.28rem;
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 999px;
+  background: var(--color-accent-emerald);
+  box-shadow: 0 0 0 1.5px color-mix(in oklab, var(--color-ink-50) 85%, transparent);
 }
 
 .dock-divider {
@@ -414,6 +426,17 @@ html[data-theme="light"] .glass {
   flex: 1;
   overflow: auto;
   padding: 0.75rem 1.25rem 1.25rem;
+}
+
+.canvas-panel.mail-panel {
+  width: min(72rem, calc(100vw - 2rem));
+}
+
+.mail-panel .sheet-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0.75rem;
 }
 
 .sheet-close {
@@ -908,10 +931,10 @@ html[data-theme="light"] .glass {
   max-height: min(36vh, 280px);
 }
 
-/* Mail lanes on console idle */
 .mail-board {
-  position: absolute;
-  inset: 5.5rem 1.25rem 6.5rem;
+  position: relative;
+  flex: 1;
+  min-height: 0;
   z-index: 2;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1126,11 +1149,8 @@ html[data-theme="light"] .glass {
 }
 
 .mail-idle-hint {
-  position: absolute;
-  left: 50%;
-  bottom: 5.75rem;
-  transform: translateX(-50%);
-  z-index: 3;
+  margin: 0.15rem 0 0;
+  text-align: center;
   font-size: 12px;
   color: var(--color-ink-500);
   pointer-events: none;
@@ -1245,10 +1265,8 @@ html[data-theme="light"] .glass {
   .mail-board {
     grid-template-columns: 1fr;
     overflow: auto;
-    inset: 5rem 0.75rem 6.25rem;
   }
   .mail-lane { min-height: 220px; }
-  .mail-idle-hint { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
