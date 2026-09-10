@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 
 import { config } from "../config";
+import { createSingleton, openSqlite } from "../persist/sqlite";
 
 export type GmailAccount = {
   id: string;
@@ -44,8 +45,7 @@ export class GmailStore {
   private readonly db: Database;
 
   constructor(dbPath = config.gmailDbPath) {
-    this.db = new Database(dbPath, { create: true });
-    this.db.exec("PRAGMA journal_mode = WAL;");
+    this.db = openSqlite(dbPath);
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS gmail_accounts (
         id TEXT PRIMARY KEY,
@@ -157,9 +157,8 @@ export class GmailStore {
   }
 }
 
-let singleton: GmailStore | null = null;
+const gmailStore = createSingleton(() => new GmailStore());
 
 export function getGmailStore(): GmailStore {
-  if (!singleton) singleton = new GmailStore();
-  return singleton;
+  return gmailStore.get();
 }

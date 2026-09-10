@@ -1,8 +1,7 @@
 import { Database } from "bun:sqlite";
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
 
 import { config } from "../config";
+import { createSingleton, openSqlite } from "../persist/sqlite";
 
 export type NotifyStatus = "pending" | "delivered" | "skipped" | "failed";
 
@@ -58,9 +57,7 @@ export class NotifyQueue {
   private readonly db: Database;
 
   constructor(dbPath = config.notifyDbPath) {
-    mkdirSync(dirname(dbPath), { recursive: true });
-    this.db = new Database(dbPath, { create: true });
-    this.db.exec("PRAGMA journal_mode = WAL;");
+    this.db = openSqlite(dbPath);
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS notify_events (
         id TEXT PRIMARY KEY,
@@ -179,9 +176,8 @@ export class NotifyQueue {
   }
 }
 
-let singleton: NotifyQueue | null = null;
+const notifyQueue = createSingleton(() => new NotifyQueue());
 
 export function getNotifyQueue(): NotifyQueue {
-  if (!singleton) singleton = new NotifyQueue();
-  return singleton;
+  return notifyQueue.get();
 }

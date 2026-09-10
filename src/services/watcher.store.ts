@@ -1,8 +1,7 @@
 import { Database } from "bun:sqlite";
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
 
 import { config } from "../config";
+import { createSingleton, openSqlite } from "../persist/sqlite";
 import {
   parseConditionsJson,
   type ConditionOp,
@@ -133,9 +132,7 @@ export class WatcherStore {
   private readonly db: Database;
 
   constructor(dbPath = config.watchersDbPath) {
-    mkdirSync(dirname(dbPath), { recursive: true });
-    this.db = new Database(dbPath, { create: true });
-    this.db.exec("PRAGMA journal_mode = WAL;");
+    this.db = openSqlite(dbPath);
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS watchers (
         id TEXT PRIMARY KEY,
@@ -417,9 +414,8 @@ export class WatcherStore {
   }
 }
 
-let singleton: WatcherStore | null = null;
+const watcherStore = createSingleton(() => new WatcherStore());
 
 export function getWatcherStore(): WatcherStore {
-  if (!singleton) singleton = new WatcherStore();
-  return singleton;
+  return watcherStore.get();
 }

@@ -1,9 +1,8 @@
 import { Database } from "bun:sqlite";
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
 
 import { newCanvasId } from "../shared/agent";
 import { config } from "../config";
+import { createSingleton, openSqlite } from "../persist/sqlite";
 
 export type CanvasRecord = {
   id: string;
@@ -12,19 +11,17 @@ export type CanvasRecord = {
   createdAt: string;
 };
 
-let singleton: CanvasStore | null = null;
+const canvasStore = createSingleton(() => new CanvasStore(config.canvasDbPath));
 
 export function getCanvasStore(): CanvasStore {
-  if (!singleton) singleton = new CanvasStore(config.canvasDbPath);
-  return singleton;
+  return canvasStore.get();
 }
 
 export class CanvasStore {
   private readonly db: Database;
 
   constructor(path: string) {
-    mkdirSync(dirname(path), { recursive: true });
-    this.db = new Database(path, { create: true });
+    this.db = openSqlite(path, { wal: false });
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS canvases (
         id TEXT PRIMARY KEY,

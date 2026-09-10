@@ -1,8 +1,7 @@
 import { Database } from "bun:sqlite";
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
 
 import type { ScheduledTask, ScheduledTaskStatus } from "./types";
+import { openSqlite } from "../persist/sqlite";
 
 export type TaskStoreApi = {
   insert(task: ScheduledTask): Promise<ScheduledTask>;
@@ -49,9 +48,7 @@ export class SqliteTaskStore implements TaskStoreApi {
   private readonly db: Database;
 
   constructor(path: string) {
-    mkdirSync(dirname(path), { recursive: true });
-    this.db = new Database(path, { create: true });
-    this.db.exec("PRAGMA journal_mode = WAL;");
+    this.db = openSqlite(path);
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS scheduled_tasks (
         id TEXT PRIMARY KEY,
