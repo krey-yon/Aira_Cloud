@@ -10,10 +10,10 @@ dist
 coverage
 *.lcov
 
-# logs
-logs
-_.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+# logs (repo-root only — do not ignore console/panels/logs)
+/logs
+*.log
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # dotenv environment variable files
 .env
