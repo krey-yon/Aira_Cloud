@@ -53,8 +53,8 @@ if (!config.cloudflareAccountId || !config.cloudflareApiToken) {
 const jobs = new JobStore();
 const clients = new ClientRegistry();
 const errors = new ErrorStore();
-const runner = new JobRunner(jobs, clients);
 const agent = new AgentService();
+const runner = new JobRunner(jobs, clients, agent);
 const scheduler = getScheduler();
 const logs = getLogRing();
 const watchers = getWatcherStore();
