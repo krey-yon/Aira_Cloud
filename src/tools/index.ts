@@ -1,5 +1,4 @@
 import { askUserTool } from "./ask-user.tool";
-import { echoTool } from "./echo.tool";
 import { emailVerifyTool } from "./email-verify.tool";
 import {
   gmailDraftDiscardTool,
@@ -47,7 +46,6 @@ export * from "./types";
 
 export const tools = {
   ask_user: askUserTool,
-  echo: echoTool,
   email_verify: emailVerifyTool,
   webfetch: webfetchTool,
   websearch: websearchTool,
