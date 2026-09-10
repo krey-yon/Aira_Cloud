@@ -1,8 +1,9 @@
-import type { MailDraft, RecentMail } from "../../hooks/useMailBoard";
+import { cleanMailBody } from "../../../src/services/mail.preview";
+import type { MailDraft, RecentMailMessage } from "../../hooks/useMailBoard";
 
 type Item =
   | { kind: "draft" | "scheduled"; data: MailDraft }
-  | { kind: "recent"; data: RecentMail };
+  | { kind: "recent"; data: RecentMailMessage };
 
 type Props = {
   open: boolean;
@@ -23,13 +24,17 @@ export function MailReaderModal({
 }: Props) {
   if (!open || !item) return null;
 
-  const subject =
-    item.kind === "recent" ? item.data.subject : item.data.subject;
+  const subject = item.data.subject;
   const sub =
     item.kind === "recent"
-      ? `from ${item.data.from}`
+      ? `from ${item.data.fromName || item.data.from}`
       : `to ${item.data.to.join(", ")}${item.data.runAt ? ` · ${item.data.runAt}` : ""}`;
-  const body = item.data.body || ("snippet" in item.data ? item.data.snippet : "");
+  const body =
+    item.kind === "recent"
+      ? item.data.body
+        ? cleanMailBody(item.data.body)
+        : item.data.preview
+      : item.data.body;
 
   return (
     <div className="mail-scrim" onClick={onClose} role="presentation">
@@ -49,7 +54,9 @@ export function MailReaderModal({
             ×
           </button>
         </div>
-        <div className="mail-modal-body">{body}</div>
+        <div className="mail-modal-body">
+          {item.kind === "recent" && !item.data.body ? "Loading…" : body}
+        </div>
         {(item.kind === "draft" || item.kind === "scheduled") && (
           <div className="mail-modal-foot">
             <button

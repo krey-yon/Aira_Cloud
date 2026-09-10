@@ -36,3 +36,15 @@ test("setLogFilter, errors panel, and watcher draft stay on typed union", () => 
     draft: false,
   });
 });
+
+test("mail panel is { panel: mail } only and toggles like other panels", () => {
+  const mail = openPanel(idle(), "mail");
+  expect(mail).toEqual({ panel: "mail" });
+  expect(selectInPanel(mail, "msg_1")).toEqual({ panel: "mail" });
+  expect(openPanel(mail, "mail")).toEqual(idle());
+  expect(openPanel(mail, "logs")).toEqual({
+    panel: "logs",
+    filter: "all",
+    selectedId: null,
+  });
+});

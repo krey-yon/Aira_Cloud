@@ -1,4 +1,5 @@
-import type { MailDraft, RecentMail } from "../../hooks/useMailBoard";
+import { formatRelativeTime } from "../../lib/relative-time";
+import type { MailDraft, RecentMailCard } from "../../hooks/useMailBoard";
 
 type DraftProps = {
   item: MailDraft;
@@ -10,7 +11,7 @@ type DraftProps = {
 };
 
 type RecentProps = {
-  item: RecentMail;
+  item: RecentMailCard;
   onOpen: () => void;
 };
 
@@ -72,11 +73,11 @@ export function MailRecentCard({ item, onOpen }: RecentProps) {
       }}
     >
       <div className="mail-card-top">
-        <span className="mail-muted mail-from">{item.from}</span>
-        <span className="mail-muted">{item.date}</span>
+        <span className="mail-muted mail-from">{item.fromName || item.from}</span>
+        <span className="mail-muted">{formatRelativeTime(item.date)}</span>
       </div>
       <div className="mail-subj">{item.subject || "(no subject)"}</div>
-      <div className="mail-snip">{snip(item.snippet || item.body)}</div>
+      <div className="mail-snip">{item.preview}</div>
     </article>
   );
 }

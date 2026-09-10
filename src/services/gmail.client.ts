@@ -19,6 +19,21 @@ export type GmailMessageDetail = GmailMessageSummary & {
   labelIds: string[];
 };
 
+export type GmailMessagePreview = GmailMessageSummary & {
+  labelIds: string[];
+  listUnsubscribe: string;
+  precedence: string;
+};
+
+const PREVIEW_HEADERS = [
+  "From",
+  "To",
+  "Subject",
+  "Date",
+  "List-Unsubscribe",
+  "Precedence",
+];
+
 type GmailListResponse = {
   messages?: Array<{ id: string; threadId: string }>;
   error?: { message?: string };
@@ -133,10 +148,10 @@ export function buildRawMime(input: {
     .replace(/=+$/, "");
 }
 
-export async function listMessages(input?: {
+async function listMessageIds(input?: {
   maxResults?: number;
   q?: string;
-}): Promise<GmailMessageSummary[]> {
+}): Promise<string[]> {
   const maxResults = Math.min(Math.max(input?.maxResults ?? 5, 1), 20);
   const params = new URLSearchParams({ maxResults: String(maxResults) });
   if (input?.q) params.set("q", input.q);
@@ -145,13 +160,48 @@ export async function listMessages(input?: {
   if (!listRes.ok) {
     throw new Error(list.error?.message || `Gmail list failed (${listRes.status})`);
   }
-  const ids = list.messages ?? [];
+  return (list.messages ?? []).map((row) => row.id);
+}
+
+export async function listMessages(input?: {
+  maxResults?: number;
+  q?: string;
+}): Promise<GmailMessageSummary[]> {
+  const ids = await listMessageIds(input);
   const out: GmailMessageSummary[] = [];
-  for (const row of ids) {
-    const detail = await getMessage(row.id);
-    out.push(detail);
+  for (const id of ids) {
+    out.push(await getMessage(id));
   }
   return out;
+}
+
+export async function listMessagePreviews(input?: {
+  maxResults?: number;
+  q?: string;
+}): Promise<GmailMessagePreview[]> {
+  const ids = await listMessageIds(input);
+  const out: GmailMessagePreview[] = [];
+  for (const id of ids) {
+    out.push(await getMessagePreview(id));
+  }
+  return out;
+}
+
+async function getMessagePreview(id: string): Promise<GmailMessagePreview> {
+  const params = new URLSearchParams({ format: "metadata" });
+  for (const name of PREVIEW_HEADERS) params.append("metadataHeaders", name);
+  const res = await gmailFetch(`/messages/${encodeURIComponent(id)}?${params}`);
+  const msg = (await res.json()) as GmailMessageResponse;
+  if (!res.ok) {
+    throw new Error(msg.error?.message || `Gmail get failed (${res.status})`);
+  }
+  const headers = msg.payload?.headers;
+  return {
+    ...summarize(msg),
+    labelIds: msg.labelIds ?? [],
+    listUnsubscribe: header(headers, "List-Unsubscribe"),
+    precedence: header(headers, "Precedence"),
+  };
 }
 
 export async function getMessage(id: string): Promise<GmailMessageDetail> {

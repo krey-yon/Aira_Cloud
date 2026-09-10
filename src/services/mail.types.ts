@@ -1,3 +1,7 @@
+import type { RecentMailCard } from "./mail.preview";
+
+export type { RecentMailCard };
+
 export type MailNodeStatus = "draft" | "scheduled" | "sent" | "cancelled" | "discarded";
 
 export type ImportanceScore = {
@@ -38,15 +42,7 @@ export type MailNode = {
 export type MailBoardPayload = {
   drafts: MailNode[];
   scheduled: MailNode[];
-  recent: Array<{
-    id: string;
-    from: string;
-    to: string;
-    subject: string;
-    snippet: string;
-    body: string;
-    date: string;
-  }>;
+  recent: RecentMailCard[];
 };
 
 export function newMailId(prefix: string): string {

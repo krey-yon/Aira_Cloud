@@ -6,12 +6,12 @@ type Props = {
   children: ReactNode;
   actions?: ReactNode;
   eyebrow?: string;
+  className?: string;
 };
 
-/** Full canvas surface for dock panels (not a modal sheet). */
-export function Sheet({ title, onClose, children, actions, eyebrow }: Props) {
+export function Sheet({ title, onClose, children, actions, eyebrow, className }: Props) {
   return (
-    <section className="canvas-panel glass" aria-label={title}>
+    <section className={`canvas-panel glass${className ? ` ${className}` : ""}`} aria-label={title}>
       <div className="sheet-header">
         <div className="sheet-heading">
           {eyebrow ? <span className="sheet-eyebrow">{eyebrow}</span> : null}

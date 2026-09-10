@@ -13,20 +13,23 @@ export type MailDraft = {
   scheduleTaskId?: string;
 };
 
-export type RecentMail = {
+export type RecentMailCard = {
   id: string;
   from: string;
-  to: string;
+  fromName: string;
   subject: string;
-  snippet: string;
-  body: string;
+  preview: string;
   date: string;
+};
+
+export type RecentMailMessage = RecentMailCard & {
+  body: string;
 };
 
 export type MailBoard = {
   drafts: MailDraft[];
   scheduled: MailDraft[];
-  recent: RecentMail[];
+  recent: RecentMailCard[];
 };
 
 const empty: MailBoard = { drafts: [], scheduled: [], recent: [] };
@@ -35,6 +38,7 @@ export function useMailBoard(enabled: boolean) {
   const [board, setBoard] = useState<MailBoard>(empty);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(enabled);
 
   const refresh = useCallback(async () => {
     if (!enabled) return;
@@ -52,10 +56,20 @@ export function useMailBoard(enabled: boolean) {
   }, [enabled]);
 
   useEffect(() => {
-    if (!enabled) return;
-    void refresh();
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    void refresh().finally(() => {
+      if (!cancelled) setLoading(false);
+    });
     const id = window.setInterval(() => void refresh(), 12_000);
-    return () => window.clearInterval(id);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
   }, [enabled, refresh]);
 
   const sendNow = useCallback(
@@ -85,11 +99,11 @@ export function useMailBoard(enabled: boolean) {
   );
 
   const loadMessage = useCallback(async (id: string) => {
-    const raw = await api<{ message: RecentMail & { body: string } }>(
+    const raw = await api<{ message: RecentMailMessage }>(
       `/v1/mail/messages/${encodeURIComponent(id)}`,
     );
     return raw.message;
   }, []);
 
-  return { board, error, busy, refresh, sendNow, discard, loadMessage };
+  return { board, error, busy, loading, refresh, sendNow, discard, loadMessage };
 }

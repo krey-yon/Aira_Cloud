@@ -24,8 +24,14 @@ import {
   gmailStatus,
 } from "./src/services/gmail.oauth";
 import { getGmailStore } from "./src/services/gmail.store";
-import { getMessage, listMessages, sendMessage } from "./src/services/gmail.client";
+import { getMessage, listMessagePreviews, sendMessage } from "./src/services/gmail.client";
 import { getMailStore } from "./src/services/mail.store";
+import {
+  pickRecentCards,
+  RECENT_FETCH_WINDOW,
+  RECENT_INBOX_QUERY,
+  type RecentMailCard,
+} from "./src/services/mail.preview";
 import { getCanvasStore } from "./src/services/canvas.store";
 import { getNotifyQueue } from "./src/services/notify.queue";
 import { bindQuestionBridge, resolveQuestionReply } from "./src/services/question.bridge";
@@ -555,27 +561,14 @@ const server = Bun.serve<SocketData>({
         const store = getMailStore();
         const drafts = store.listNodes("draft");
         const scheduled = store.listNodes("scheduled");
-        let recent: Array<{
-          id: string;
-          from: string;
-          to: string;
-          subject: string;
-          snippet: string;
-          body: string;
-          date: string;
-        }> = [];
+        let recent: RecentMailCard[] = [];
         try {
           if (gmailStatus().connected) {
-            const messages = await listMessages({ maxResults: 5 });
-            recent = messages.map((m) => ({
-              id: m.id,
-              from: m.from,
-              to: m.to,
-              subject: m.subject,
-              snippet: m.snippet,
-              body: m.snippet,
-              date: m.date,
-            }));
+            const messages = await listMessagePreviews({
+              maxResults: RECENT_FETCH_WINDOW,
+              q: RECENT_INBOX_QUERY,
+            });
+            recent = pickRecentCards(messages);
           }
         } catch (err) {
           logs.append({
