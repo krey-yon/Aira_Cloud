@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { callExaMcp } from "../lib/exa";
+import { callExaMcp } from "../integrations/exa";
 
 export const websearchTool = tool({
   description: [

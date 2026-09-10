@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { getRequestContext } from "../lib/request-context";
+import { getRequestContext } from "../realtime/request-context";
 import { getScheduler } from "../scheduler";
 
 const delayFields = {

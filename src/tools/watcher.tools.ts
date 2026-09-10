@@ -1,8 +1,8 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { getRequestContext } from "../lib/request-context";
-import { getWatcherStore } from "../services/watcher.store";
+import { getRequestContext } from "../realtime/request-context";
+import { getWatcherStore } from "../watchers/watcher.store";
 
 const conditionOp = z.enum([
   "eq",

@@ -786,29 +786,6 @@ html[data-theme="light"] .glass {
   pointer-events: none;
 }
 
-.gmail-card {
-  pointer-events: auto;
-  width: min(22rem, 100%);
-  border-radius: 18px;
-  padding: 1rem 1.1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  text-align: left;
-}
-
-.gmail-card-title {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-.gmail-card-copy {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.45;
-  color: var(--color-ink-600);
-}
 
 .gmail-email {
   font-size: 12px;

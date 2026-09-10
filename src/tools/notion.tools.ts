@@ -9,7 +9,7 @@ import {
   notionRequest,
   summarizeNotionObject,
   toolError,
-} from "../lib/notion";
+} from "../integrations/notion";
 
 const idSchema = z
   .string()
