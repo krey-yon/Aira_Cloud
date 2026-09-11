@@ -10,6 +10,9 @@ export type AgentRequest = {
 export type AgentResponse = {
   content: string;
   skillId: string;
+  skillIds?: string[];
+  plan?: string;
+  artifacts?: Array<{ key: string; value: unknown }>;
   toolCalls?: Array<{
     name: string;
     arguments: string;

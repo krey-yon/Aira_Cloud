@@ -7,6 +7,7 @@ import { ErrorsSheet } from "../panels/errors/ErrorsSheet";
 import { LogsSheet } from "../panels/logs/LogsSheet";
 import { MailSheet } from "../panels/mail/MailSheet";
 import { ScheduleSheet } from "../panels/schedule/ScheduleSheet";
+import { SkillsSheet } from "../panels/skills/SkillsSheet";
 import { WatchersSheet } from "../panels/watchers/WatchersSheet";
 
 type Props = {
@@ -26,6 +27,7 @@ function subtitleFor(nav: ConsoleNav, gmailEmail: string | null): string {
   if (nav.panel === "logs") return "agent log";
   if (nav.panel === "schedule") return "schedule";
   if (nav.panel === "errors") return "errors";
+  if (nav.panel === "skills") return "skills";
   if (nav.panel === "mail") return gmailEmail ? gmailEmail : "mail";
   return nav.draft ? "watchers · draft" : "watchers";
 }
@@ -68,6 +70,9 @@ export function ConsoleStage({
       )}
       {nav.panel === "errors" && (
         <ErrorsSheet nav={nav} onClose={onClose} onSelect={onSelect} />
+      )}
+      {nav.panel === "skills" && (
+        <SkillsSheet nav={nav} onClose={onClose} onSelect={onSelect} />
       )}
 
       <Dock

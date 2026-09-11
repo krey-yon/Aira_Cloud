@@ -255,6 +255,15 @@ export class JobRunner {
         toolCalls: result.toolCalls,
       });
 
+      if (result.plan || result.skillIds?.length) {
+        this.note(job, "status", result.plan ?? "planned", {
+          skillIds: result.skillIds,
+        });
+      }
+      if (result.artifacts?.length) {
+        this.note(job, "status", "artifacts", { artifacts: result.artifacts });
+      }
+
       this.note(job, "answer", "done", content.slice(0, 500));
       this.emit(job, {
         type: "answer",
@@ -275,19 +284,42 @@ export class JobRunner {
           placeholder: askUserFromProse.placeholder,
         });
         const choice = reply.text?.trim() || reply.label;
-        const followUp = [
-          askUserFromProse.remainder,
-          askUserFromProse.remainder ? "" : "",
-          `Got “${choice}”.`,
-        ]
-          .join("\n")
-          .trim();
-        const presented = this.presentAnswer(job, followUp || `Got “${choice}”.`);
-        this.emit(job, {
-          ...presented.notify,
-          title: "Aira finished",
-          body: (followUp || choice).slice(0, 180),
+        const continued = await requestContext.run(
+          { clientId: job.clientId, jobId: job.id },
+          () =>
+            this.agent.run({
+              skillId: result.skillId,
+              messages: [
+                {
+                  role: "user",
+                  content: buildUserContent(job.text, job.pageContext),
+                },
+                {
+                  role: "assistant",
+                  content: askUserFromProse.remainder || content,
+                },
+                {
+                  role: "user",
+                  content: `My answer to your question ("${askUserFromProse.prompt}"): ${choice}`,
+                },
+              ],
+            }),
+        );
+        content = continued.content;
+        this.jobs.update(job.id, {
+          status: "done",
+          content,
+          skillId: continued.skillId,
+          toolCalls: continued.toolCalls,
         });
+        this.emit(job, {
+          type: "answer",
+          jobId: job.id,
+          content,
+          skillId: continued.skillId,
+        });
+        const presented = this.presentAnswer(job, content.trim() || "Done.");
+        this.emit(job, presented.notify);
       } else {
         const body = content.trim() || "Done.";
         const presented = this.presentAnswer(job, body);

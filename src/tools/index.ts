@@ -84,3 +84,30 @@ export const tools = {
 export function getTools(): AppTools {
   return tools;
 }
+
+const ALL_TOOL_NAMES = Object.keys(tools) as Array<keyof AppTools>;
+
+export function listToolNames(): Array<keyof AppTools> {
+  return [...ALL_TOOL_NAMES];
+}
+
+/**
+ * Return only the named tools. Always includes `ask_user` when present in the registry.
+ * Unknown names are dropped and logged.
+ */
+export function getToolsFor(names: string[]): AppTools {
+  const allow = new Set(names);
+  if (tools.ask_user) allow.add("ask_user");
+  const selected: Partial<AppTools> = {};
+  for (const name of ALL_TOOL_NAMES) {
+    if (allow.has(name)) {
+      selected[name] = tools[name];
+    }
+  }
+  for (const name of names) {
+    if (!(name in tools)) {
+      console.warn(`[skills] dropping unknown tool "${name}"`);
+    }
+  }
+  return selected as AppTools;
+}
