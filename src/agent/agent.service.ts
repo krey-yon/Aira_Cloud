@@ -1,6 +1,6 @@
 import { formatAgentClock } from "./agent-clock";
 import { ArtifactBag } from "./artifacts";
-import { planSkills } from "./planner";
+import { planSkills, buildSkillBlocks } from "./planner";
 import { getSkillStore, tryGetSkill } from "../skills";
 import { getToolsFor } from "../tools";
 import type { AgentRequest, AgentResponse } from "./types";
@@ -57,9 +57,7 @@ export class AgentService {
     const toolNames = [...new Set(bodies.flatMap((b) => b.tools))];
     const tools = getToolsFor(toolNames);
 
-    const skillBlocks = bodies
-      .map((b) => `# Skill: ${b.name} (${b.id})\n\n${b.instructions}`)
-      .join("\n\n---\n\n");
+    const skillBlocks = buildSkillBlocks(bodies, planned);
 
     const artifacts = new ArtifactBag();
     const wrappedHooks: GenerateHooks = {

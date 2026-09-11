@@ -3,6 +3,7 @@ import { api } from "../../api/client";
 import type { ConsoleNav } from "../../shell/nav";
 import { Sheet } from "../../shell/Sheet";
 import { buildSkillGraph } from "./graph-model";
+import { SkillGraph } from "./SkillGraph";
 
 type SkillEdge = { to: string; kind: "routes-to" | "compose-with" };
 
@@ -212,31 +213,7 @@ export function SkillsSheet({ nav, onClose, onSelect }: Props) {
 
         <div className="skills-main">
           {mode === "graph" ? (
-            <svg className="skills-graph" viewBox="0 0 320 280" role="img" aria-label="Skill graph">
-              {graph.links.map((link) => {
-                const from = graph.nodes.find((n) => n.id === link.from);
-                const to = graph.nodes.find((n) => n.id === link.to);
-                if (!from || !to) return null;
-                return (
-                  <line
-                    key={`${link.from}-${link.to}-${link.kind}`}
-                    x1={from.x}
-                    y1={from.y}
-                    x2={to.x}
-                    y2={to.y}
-                    className="skills-graph-edge"
-                  />
-                );
-              })}
-              {graph.nodes.map((node) => (
-                <g key={node.id} className="skills-graph-node" onClick={() => onSelect(node.id)}>
-                  <circle cx={node.x} cy={node.y} r="18" />
-                  <text x={node.x} y={node.y + 32} textAnchor="middle">
-                    {node.label}
-                  </text>
-                </g>
-              ))}
-            </svg>
+            <SkillGraph nodes={graph.nodes} links={graph.links} onSelect={(id) => onSelect(id)} />
           ) : draft ? (
             <div className="form skills-editor">
               <label>
@@ -250,9 +227,15 @@ export function SkillsSheet({ nav, onClose, onSelect }: Props) {
                 Description
                 <input
                   value={draft.description}
+                  placeholder="One-line capability + when the planner should pick this skill."
                   onChange={(e) => setDraft({ ...draft, description: e.target.value })}
                 />
               </label>
+              {draft.description.trim().length < 40 ? (
+                <p className="skills-status">
+                  Short descriptions hurt retrieval — aim for one full sentence.
+                </p>
+              ) : null}
               <label>
                 Tags (comma separated)
                 <input

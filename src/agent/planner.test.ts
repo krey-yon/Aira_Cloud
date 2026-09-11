@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { planSkills } from "./planner";
+import {
+  buildSkillBlocks,
+  DEFAULT_MAX_CHARS_PER_SKILL,
+  DEFAULT_MAX_CONTEXT_CHARS,
+  extractQueryKeywords,
+  planSkills,
+} from "./planner";
 import type { SkillMeta } from "../skills/types";
 
 const catalog: SkillMeta[] = [
@@ -76,5 +82,67 @@ describe("planSkills", () => {
       catalog,
     });
     expect(plan.skillIds).toContain("websearch");
+  });
+
+  test("reverse traversal pulls in a dependent the keywords miss", () => {
+    const graph: SkillMeta[] = [
+      {
+        id: "reporter",
+        name: "Reporter",
+        description: "Assembles deliverables",
+        tags: ["report"],
+        tools: ["report"],
+        edges: [{ to: "parser", kind: "compose-with" }],
+      },
+      {
+        id: "parser",
+        name: "Parser",
+        description: "Parses binary mesh files",
+        tags: ["mesh", "parse"],
+        tools: ["parse"],
+        edges: [],
+      },
+      {
+        id: "other",
+        name: "Other",
+        description: "Unrelated helper",
+        tags: ["other"],
+        tools: ["other"],
+        edges: [],
+      },
+    ];
+    const plan = planSkills({ text: "parse my binary mesh files", catalog: graph });
+    expect(plan.skillIds).toContain("parser");
+    // Reporter never matches the query text, only the graph pulls it in.
+    expect(plan.skillIds).toContain("reporter");
+  });
+
+  test("plan carries bundle budgets", () => {
+    const plan = planSkills({ text: "hi", catalog });
+    expect(plan.maxCharsPerSkill).toBe(DEFAULT_MAX_CHARS_PER_SKILL);
+    expect(plan.maxContextChars).toBe(DEFAULT_MAX_CONTEXT_CHARS);
+  });
+
+  test("extractQueryKeywords drops stopwords and short tokens", () => {
+    expect(extractQueryKeywords("the a an parse binary STL file, please!")).toEqual([
+      "parse",
+      "binary",
+      "stl",
+      "file",
+    ]);
+  });
+
+  test("buildSkillBlocks enforces per-skill and total budgets", () => {
+    const long = "x".repeat(5000);
+    const single = buildSkillBlocks([{ id: "a", name: "A", instructions: long }], {
+      maxCharsPerSkill: 100,
+      maxContextChars: 10000,
+    });
+    expect(single.length).toBeLessThanOrEqual("# Skill: A (a)\n\n".length + 100);
+
+    const bodies = [0, 1, 2].map((i) => ({ id: `s${i}`, name: `S${i}`, instructions: "y".repeat(500) }));
+    const capped = buildSkillBlocks(bodies, { maxCharsPerSkill: 1000, maxContextChars: 600 });
+    expect(capped.length).toBeLessThanOrEqual(600);
+    expect(capped).toContain("S0");
   });
 });
