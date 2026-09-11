@@ -1567,42 +1567,136 @@ html[data-theme="light"] .glass {
   padding: 0.25rem 0.25rem 1rem;
 }
 
+/*
+ * Home cards — Vellum note-card treatment (spatial-notes, MIT).
+ * Per-card tint via --home-tint (bg) + --home-accent, set inline per card.
+ */
 .home-card {
-  border-radius: 16px;
-  padding: 0.875rem 1rem 1rem;
+  --home-tint: var(--color-ink-100);
+  --home-accent: var(--color-action);  position: relative;
+  isolation: isolate;
+  border-radius: 18px;
+  background: var(--home-tint);
+  border: 1px solid color-mix(in oklab, var(--home-accent) 24%, transparent);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.16),
+    0 10px 28px -12px rgba(0, 0, 0, 0.42),
+    0 30px 70px -30px rgba(0, 0, 0, 0.52);
+  padding: 0.625rem 1rem 0.75rem;
   min-width: 0;
+  overflow: hidden;
+  animation: home-card-in 0.35s var(--ease-out);
+  transition: box-shadow 0.18s var(--ease-out), opacity 0.18s var(--ease-out);
+}
+
+@keyframes home-card-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Accent glow top-left + white sheen */
+.home-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(120% 90% at 0% 0%, color-mix(in oklab, var(--home-accent) 20%, transparent), transparent 52%),
+    linear-gradient(150deg, rgba(255, 255, 255, 0.07), transparent 38%, rgba(255, 255, 255, 0.02));
+}
+
+/* Noise texture */
+.home-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  mix-blend-mode: soft-light;
+  opacity: 0.065;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 140 140' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.92' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.45'/%3E%3C/svg%3E");
+}
+
+html[data-theme="light"] .home-card::before {
+  background:
+    radial-gradient(120% 90% at 0% 0%, color-mix(in oklab, var(--home-accent) 14%, transparent), transparent 52%),
+    linear-gradient(150deg, rgba(255, 255, 255, 0.62), transparent 42%, rgba(255, 255, 255, 0.2));
 }
 
 .home-card-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.625rem;
   width: 100%;
-  padding: 0 0 0.625rem;
-  background: none;
-  border: none;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-ink-900) 6%, transparent);
-  margin-bottom: 0.625rem;
+  padding: 0.125rem 0 0.625rem;
   font-size: 13px;
   font-weight: 650;
   letter-spacing: -0.01em;
   color: inherit;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.home-card-head:active {
+  cursor: grabbing;
+}
+
+.home-card-pill {
+  flex-shrink: 0;
+  height: 0.375rem;
+  width: 1.25rem;
+  border-radius: 999px;
+  background: var(--home-accent);
+  box-shadow: 0 0 10px color-mix(in oklab, var(--home-accent) 70%, transparent);
+}
+
+.home-card-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
   cursor: pointer;
 }
 
-.home-card-head > span:last-child {
+.home-card-open {
+  flex-shrink: 0;
   color: var(--color-ink-500);
+}
+
+.home-card-title:hover + .home-card-open,
+.home-card-head:hover .home-card-open {
+  color: inherit;
 }
 
 .home-card .list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.25rem;
 }
 
 .home-card .row {
   cursor: default;
+  background: none;
+  border: none;
+  padding: 0.375rem 0;
+}
+
+.home-card .row-title {
+  font-size: 15px;
+  line-height: 1.55;
+  letter-spacing: -0.012em;
 }
 
 .home-card .row-title a {
@@ -1610,6 +1704,105 @@ html[data-theme="light"] .glass {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* Read-only status box — echo of the Vellum todo checkbox */
+.home-status {
+  flex-shrink: 0;
+  width: 1em;
+  height: 1em;
+  font-size: 13px;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1.25px color-mix(in oklab, currentColor 35%, transparent);
+}
+
+.home-status.is-fill {
+  background: var(--home-accent);
+  box-shadow: inset 0 0 0 1px var(--home-accent);
+}
+
+.home-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+}
+
+.home-row .home-status {
+  margin-top: 0.32em;
+}
+
+.home-row-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.home-card-stamp {
+  padding-top: 0.625rem;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in oklab, currentColor 50%, transparent);
+}
+
+/* Skeleton loading */
+.home-skeleton-block {
+  border-radius: 8px;
+  background: color-mix(in oklab, currentColor 8%, transparent);
+  animation: home-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes home-shimmer {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+/* Drag states */
+.home-card.is-dragging {
+  opacity: 0.85;
+  box-shadow:
+    0 4px 10px rgba(0, 0, 0, 0.22),
+    0 26px 58px -15px rgba(0, 0, 0, 0.46),
+    0 38px 90px -24px color-mix(in oklab, var(--home-accent) 42%, transparent);
+}
+
+.home-card.is-drop-target {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.16),
+    0 10px 28px -12px rgba(0, 0, 0, 0.42),
+    0 0 0 2px color-mix(in oklab, var(--home-accent) 72%, transparent);
+}
+
+.home-welcome {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 3rem 1.5rem;
+  border-radius: 18px;
+}
+
+.home-welcome h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+}
+
+.home-welcome p {
+  margin: 0;
+  color: var(--color-ink-500);
+  font-size: 13px;
+}
+
+/* Per-card tints (from Vellum's note palette) */
+.home-tint-ocean { --home-tint: #10283e; --home-accent: #4cc9ff; }
+.home-tint-gold { --home-tint: #39351c; --home-accent: #f7d44c; }
+.home-tint-violet { --home-tint: #2a2050; --home-accent: #a78bfa; }
+.home-tint-forest { --home-tint: #143128; --home-accent: #66e3a4; }
+.home-tint-plum { --home-tint: #31203d; --home-accent: #e78bff; }
+
+html[data-theme="light"] .home-tint-ocean { --home-tint: #dff4ff; --home-accent: #0096d6; }
+html[data-theme="light"] .home-tint-gold { --home-tint: #fff5c9; --home-accent: #b78500; }
+html[data-theme="light"] .home-tint-violet { --home-tint: #eee7ff; --home-accent: #7652df; }
+html[data-theme="light"] .home-tint-forest { --home-tint: #e0f7e9; --home-accent: #16965a; }
+html[data-theme="light"] .home-tint-plum { --home-tint: #f6e5ff; --home-accent: #a73bd0; }
 
 @media (max-width: 800px) {
   .home-grid {
