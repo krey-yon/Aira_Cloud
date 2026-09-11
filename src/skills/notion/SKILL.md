@@ -34,6 +34,18 @@ IDs can be UUIDs or pasted Notion URLs.
 
 ## Workflows
 
+### Find then write (required for named destinations)
+
+When the user names an existing place (for example "watch later", "llm notes", a page title, or "under X"):
+
+1. Call `notion_search` with the destination title words.
+2. If needed, `notion_read_page` on the best match (and its parent) to confirm.
+3. Prefer `notion_write_page` or `notion_update_page` on that page id.
+4. Call `notion_create_page` only when search returns no reasonable match, or the user explicitly asked for a new page.
+5. Always return the Notion URL of the page you changed.
+
+Never create a sibling page with a similar title when search already found the destination.
+
 ### Read or organize
 
 1. `notion_search` for the area the user named.

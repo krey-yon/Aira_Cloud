@@ -23,11 +23,32 @@ import {
   RECENT_INBOX_QUERY,
   type RecentMailCard,
 } from "../mail/mail.preview";
-import { getSkills } from "../skills";
+import { getSkillStore } from "../skills";
+import { listToolNames } from "../tools";
 import type { WatcherInput, WatcherStatus } from "../watchers/watcher.store";
 import { canvasPage } from "../canvas/canvas-page";
 import type { AppDeps } from "./deps";
 import { startJob } from "./ws";
+
+type SkillWriteBody = {
+  id?: string;
+  name?: string;
+  description?: string;
+  tags?: string[];
+  instructions?: string;
+  tools?: string[];
+  maxSteps?: number;
+  edges?: Array<{ to: string; kind: "routes-to" | "compose-with" }>;
+};
+
+function slugifySkillId(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 64);
+}
 
 export function createRoutes(deps: AppDeps) {
   const { canvases, logs, jobs, errors, scheduler, watchers, notifyQueue, clients } = deps;
@@ -248,15 +269,120 @@ export function createRoutes(deps: AppDeps) {
       },
     },
     "/v1/skills": {
-      GET: (req: Request) => {
+      GET: async (req: Request) => {
         const denied = requireAuth(req); if (denied) return denied;
+        const store = getSkillStore();
+        await store.ensureSeeded();
+        const url = new URL(req.url);
+        const full = url.searchParams.get("full") === "1";
+        if (full) {
+          return json({ skills: store.listAll() });
+        }
         return json({
-          skills: getSkills().map((skill) => ({
-            id: skill.id,
-            name: skill.name,
-            description: skill.description,
-          })),
+          skills: store.listMeta(),
+          toolNames: listToolNames(),
         });
+      },
+      POST: async (req: Request) => {
+        const denied = requireAuth(req); if (denied) return denied;
+        const parsed = await readJson<SkillWriteBody>(req);
+        if (!parsed.ok) return parsed.response;
+        const body = parsed.body;
+        const name = body.name?.trim();
+        const description = body.description?.trim();
+        const instructions = body.instructions ?? "";
+        if (!name || !description) {
+          return json({ error: "name and description are required" }, 400);
+        }
+        const id = (body.id?.trim() || slugifySkillId(name));
+        if (!id) return json({ error: "id is required" }, 400);
+        const store = getSkillStore();
+        await store.ensureSeeded();
+        if (store.get(id)) return json({ error: "skill already exists" }, 409);
+        const known = new Set(listToolNames() as string[]);
+        const tools = (body.tools ?? ["ask_user"]).filter((t) => known.has(t));
+        if (body.tools) {
+          for (const t of body.tools) {
+            if (!known.has(t)) console.warn(`[skills] dropping unknown tool "${t}"`);
+          }
+        }
+        const skill = store.upsert({
+          id,
+          name,
+          description,
+          tags: body.tags ?? [],
+          instructions,
+          tools: tools.length ? tools : ["ask_user"],
+          maxSteps: body.maxSteps,
+          edges: body.edges ?? [],
+        });
+        return json({ skill }, 201);
+      },
+    },
+    "/v1/skills/export": {
+      POST: async (req: Request) => {
+        const denied = requireAuth(req); if (denied) return denied;
+        const store = getSkillStore();
+        await store.ensureSeeded();
+        const dir = `${process.cwd()}/data/skills-export`;
+        const paths = store.exportToDir(dir);
+        return json({ dir, paths });
+      },
+    },
+    "/v1/skills/:id": {
+      GET: async (req: Request) => {
+        const denied = requireAuth(req); if (denied) return denied;
+        const id = (req as Request & { params: { id: string } }).params.id;
+        const store = getSkillStore();
+        await store.ensureSeeded();
+        const skill = store.get(id);
+        if (!skill) return json({ error: "Not found" }, 404);
+        return json({ skill });
+      },
+      PUT: async (req: Request) => {
+        const denied = requireAuth(req); if (denied) return denied;
+        const id = (req as Request & { params: { id: string } }).params.id;
+        const parsed = await readJson<SkillWriteBody>(req);
+        if (!parsed.ok) return parsed.response;
+        const body = parsed.body;
+        const store = getSkillStore();
+        await store.ensureSeeded();
+        const current = store.get(id);
+        if (!current) return json({ error: "Not found" }, 404);
+        const known = new Set(listToolNames() as string[]);
+        const toolsRaw = body.tools ?? current.tools;
+        const tools = toolsRaw.filter((t) => known.has(t));
+        for (const t of toolsRaw) {
+          if (!known.has(t)) console.warn(`[skills] dropping unknown tool "${t}"`);
+        }
+        const edges = body.edges ?? current.edges;
+        for (const edge of edges) {
+          if (!store.get(edge.to) && edge.to !== id) {
+            return json({ error: `Unknown edge target: ${edge.to}` }, 400);
+          }
+        }
+        const skill = store.upsert({
+          id,
+          name: body.name?.trim() || current.name,
+          description: body.description?.trim() || current.description,
+          tags: body.tags ?? current.tags,
+          instructions: body.instructions ?? current.instructions,
+          tools: tools.length ? tools : ["ask_user"],
+          maxSteps: body.maxSteps !== undefined ? body.maxSteps : current.maxSteps,
+          edges,
+        });
+        return json({ skill });
+      },
+      DELETE: async (req: Request) => {
+        const denied = requireAuth(req); if (denied) return denied;
+        const id = (req as Request & { params: { id: string } }).params.id;
+        if (id === "general-assistant") {
+          return json({ error: "Cannot delete general-assistant" }, 400);
+        }
+        const store = getSkillStore();
+        await store.ensureSeeded();
+        if (!store.delete(id)) return json({ error: "Not found" }, 404);
+        return json({ ok: true });
       },
     },
     "/v1/ask": {

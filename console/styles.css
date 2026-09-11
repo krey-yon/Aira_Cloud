@@ -1381,3 +1381,172 @@ html[data-theme="light"] .glass {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Skills registry panel */
+.skills-panel .sheet-body {
+  padding-top: 0.35rem;
+}
+
+.skills-layout {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
+  gap: 0.85rem;
+  min-height: min(70vh, 640px);
+}
+
+.skills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow: auto;
+  max-height: min(70vh, 640px);
+  padding-right: 0.25rem;
+}
+
+.skills-list-item {
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 10px;
+  padding: 0.55rem 0.6rem;
+  color: var(--color-ink-800);
+  cursor: pointer;
+}
+
+.skills-list-item strong {
+  display: block;
+  font-size: 12.5px;
+}
+
+.skills-list-item span {
+  display: block;
+  margin-top: 0.15rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-ink-500);
+}
+
+.skills-list-item:hover,
+.skills-list-item.is-active {
+  border-color: color-mix(in oklab, var(--color-ink-900) 10%, transparent);
+  background: color-mix(in oklab, var(--color-ink-900) 4%, transparent);
+}
+
+.skills-main {
+  min-width: 0;
+  overflow: auto;
+  max-height: min(70vh, 640px);
+}
+
+.skills-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.65rem;
+  font-size: 11px;
+  color: var(--color-ink-600);
+}
+
+.skills-md {
+  min-height: 10rem !important;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.skills-preview {
+  margin: 0 0 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, var(--color-ink-900) 8%, transparent);
+  background: color-mix(in oklab, var(--color-ink-900) 3%, transparent);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--color-ink-800);
+  max-height: 12rem;
+  overflow: auto;
+}
+
+.skills-tools {
+  border: 1px solid color-mix(in oklab, var(--color-ink-900) 8%, transparent);
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem 0.75rem;
+  margin: 0 0 0.85rem;
+}
+
+.skills-tools legend {
+  padding: 0 0.25rem;
+  font-size: 11px;
+  color: var(--color-ink-500);
+}
+
+.skills-tool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.35rem 0.65rem;
+}
+
+.skills-tool {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-ink-700);
+}
+
+.skills-edges {
+  margin: 0 0 0.75rem;
+  padding-left: 1.1rem;
+  font-size: 12px;
+  color: var(--color-ink-700);
+}
+
+.skills-status {
+  font-size: 12px;
+  color: var(--color-ink-600);
+}
+
+.skills-empty {
+  margin: 1rem 0;
+  color: var(--color-ink-500);
+  font-size: 13px;
+}
+
+.skills-graph {
+  width: 100%;
+  height: min(60vh, 520px);
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklab, var(--color-ink-900) 8%, transparent);
+  background: color-mix(in oklab, var(--color-ink-900) 2.5%, transparent);
+}
+
+.skills-graph-edge {
+  stroke: color-mix(in oklab, var(--color-ink-900) 28%, transparent);
+  stroke-width: 1.5;
+}
+
+.skills-graph-node {
+  cursor: pointer;
+}
+
+.skills-graph-node circle {
+  fill: color-mix(in oklab, var(--color-accent-emerald) 35%, var(--color-ink-50));
+  stroke: var(--color-accent-emerald);
+  stroke-width: 1.4;
+}
+
+.skills-graph-node text {
+  fill: var(--color-ink-800);
+  font-size: 9px;
+}
+
+@media (max-width: 800px) {
+  .skills-layout {
+    grid-template-columns: 1fr;
+  }
+  .skills-list {
+    max-height: 9rem;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}

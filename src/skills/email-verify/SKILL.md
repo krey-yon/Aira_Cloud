@@ -13,7 +13,7 @@ checker, not a bulk list tool.
 
 ## Workflow
 
-Call the `email-verify` tool with the address (and optionally `port`, `timeout`,
+Call the `email_verify` tool with the address (and optionally `port`, `timeout`,
 `sender`). Read the returned `verdict` and `summary`. The tool decides the stage
 order and branching; you only interpret the verdict.
 

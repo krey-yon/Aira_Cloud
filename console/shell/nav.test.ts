@@ -48,3 +48,11 @@ test("mail panel is { panel: mail } only and toggles like other panels", () => {
     selectedId: null,
   });
 });
+
+test("skills panel selects and clears like other detail panels", () => {
+  const skills = openPanel(idle(), "skills");
+  expect(skills).toEqual({ panel: "skills", selectedId: null });
+  const selected = selectInPanel(skills, "notion");
+  expect(selected).toEqual({ panel: "skills", selectedId: "notion" });
+  expect(openPanel(selected, "skills")).toEqual({ panel: "skills", selectedId: null });
+});

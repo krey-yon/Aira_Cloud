@@ -1,34 +1,29 @@
-import { emailVerifySkill } from "./email-verify";
-import { generalAssistantSkill } from "./general-assistant";
-import { gmailSkill } from "./gmail";
-import { notionSkill } from "./notion";
-import { webfetchSkill } from "./webfetch";
-import { websearchSkill } from "./websearch";
-import type { Skill } from "./types";
+import { getSkillStore } from "./skill.store";
+import type { SkillRecord } from "./types";
 
 export * from "./types";
+export { getSkillStore, resetSkillStoreForTests, SkillStore } from "./skill.store";
 
-const skills: Skill[] = [
-  generalAssistantSkill,
-  notionSkill,
-  gmailSkill,
-  emailVerifySkill,
-  webfetchSkill,
-  websearchSkill,
-];
-
-export function getSkills(): Skill[] {
-  return skills;
+export async function initSkills(): Promise<void> {
+  await getSkillStore().ensureSeeded();
 }
 
-export function getSkill(id: string): Skill {
-  const skill = skills.find((entry) => entry.id === id);
+export function getSkills(): SkillRecord[] {
+  return getSkillStore().listAll();
+}
+
+export function getSkill(id: string): SkillRecord {
+  const skill = getSkillStore().get(id);
   if (!skill) {
     throw new Error(`Unknown skill: ${id}`);
   }
   return skill;
 }
 
-export function getDefaultSkill(): Skill {
-  return generalAssistantSkill;
+export function getDefaultSkill(): SkillRecord {
+  return getSkill("general-assistant");
+}
+
+export function tryGetSkill(id: string): SkillRecord | null {
+  return getSkillStore().get(id);
 }

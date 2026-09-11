@@ -93,6 +93,21 @@ export function Dock({
           </svg>
         </IconButton>
         <IconButton
+          label="Skills"
+          active={active === "skills"}
+          onClick={() => onOpen("skills")}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+            <path
+              d="M3 3.5h8v2.2H3V3.5zm0 4.8h5.5V10H3V8.3z"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+            />
+            <circle cx="11" cy="9.2" r="1.4" stroke="currentColor" strokeWidth="1.3" />
+          </svg>
+        </IconButton>
+        <IconButton
           label={active === "mail" ? "Close mail" : "Open mail"}
           active={active === "mail"}
           pip={gmailConnected}

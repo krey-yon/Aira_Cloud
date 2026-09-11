@@ -7,6 +7,7 @@ import { JobRunner } from "./src/agent/job.runner";
 import { JobStore } from "./src/agent/job.store";
 import { getLogRing } from "./src/observability/log.ring";
 import { getCanvasStore } from "./src/canvas/canvas.store";
+import { initSkills } from "./src/skills";
 import { getNotifyQueue } from "./src/watchers/notify.queue";
 import { bindQuestionBridge } from "./src/questions/question.bridge";
 import { getWatcherRunner } from "./src/watchers/watcher.runner";
@@ -23,6 +24,8 @@ if (!config.cloudflareAccountId || !config.cloudflareApiToken) {
     "[aira] CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN missing — agent LLM calls will fail until set.",
   );
 }
+
+await initSkills();
 
 const jobs = new JobStore();
 const clients = new ClientRegistry();
