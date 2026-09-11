@@ -1772,25 +1772,6 @@ html[data-theme="light"] .home-card::before {
     0 0 0 2px color-mix(in oklab, var(--home-accent) 72%, transparent);
 }
 
-.home-welcome {
-  grid-column: 1 / -1;
-  text-align: center;
-  padding: 3rem 1.5rem;
-  border-radius: 18px;
-}
-
-.home-welcome h2 {
-  margin: 0 0 0.5rem;
-  font-size: 1.1rem;
-  letter-spacing: -0.02em;
-}
-
-.home-welcome p {
-  margin: 0;
-  color: var(--color-ink-500);
-  font-size: 13px;
-}
-
 /* Per-card tints (from Vellum's note palette) */
 .home-tint-ocean { --home-tint: #10283e; --home-accent: #4cc9ff; }
 .home-tint-gold { --home-tint: #39351c; --home-accent: #f7d44c; }

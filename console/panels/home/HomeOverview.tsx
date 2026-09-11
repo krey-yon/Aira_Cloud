@@ -242,15 +242,9 @@ export function HomeOverview({ onOpen }: Props) {
     }
   }
 
+  // No banner: empty means a clear canvas.
   if (ordered.length === 0) {
-    return (
-      <div className="home-grid">
-        <div className="glass home-welcome">
-          <h2>All clear</h2>
-          <p>Nothing scheduled, no drafts, no canvas pages. Ask Aira to schedule something.</p>
-        </div>
-      </div>
-    );
+    return <div className="home-grid" />;
   }
 
   const shell = {
