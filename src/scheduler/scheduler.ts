@@ -97,6 +97,9 @@ export class SchedulerService {
       for (const task of due) {
         await this.runOne(task.id);
       }
+    } catch (err) {
+      // ponytail: never let a store outage kill the process; retry next tick
+      console.error("[scheduler] tick failed", err instanceof Error ? err.message : err);
     } finally {
       this.ticking = false;
     }

@@ -1569,31 +1569,27 @@ html[data-theme="light"] .glass {
 
 /*
  * Home cards — Vellum note-card treatment (spatial-notes, MIT).
- * Per-card tint via --home-tint (bg) + --home-accent, set inline per card.
+ * Per-card tint via --note-accent + background, set inline per card.
  */
 .home-card {
-  --home-tint: var(--color-ink-100);
-  --home-accent: var(--color-action);  position: relative;
+  --home-accent: var(--color-action);
+  position: relative;
   isolation: isolate;
   border-radius: 18px;
-  background: var(--home-tint);
   border: 1px solid color-mix(in oklab, var(--home-accent) 24%, transparent);
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.16),
-    0 10px 28px -12px rgba(0, 0, 0, 0.42),
-    0 30px 70px -30px rgba(0, 0, 0, 0.52);
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    0 6px 14px -4px rgba(0, 0, 0, 0.3),
+    0 16px 36px -12px rgba(0, 0, 0, 0.4);
   padding: 0.625rem 1rem 0.75rem;
   min-width: 0;
   overflow: hidden;
-  animation: home-card-in 0.35s var(--ease-out);
-  transition: box-shadow 0.18s var(--ease-out), opacity 0.18s var(--ease-out);
 }
 
-@keyframes home-card-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.98); }
-  to { opacity: 1; transform: none; }
+.home-card:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--color-action) 78%, white);
+  outline-offset: 3px;
 }
-
 /* Accent glow top-left + white sheen */
 .home-card::before {
   content: "";
@@ -1631,7 +1627,8 @@ html[data-theme="light"] .home-card::before {
   align-items: center;
   gap: 0.625rem;
   width: 100%;
-  padding: 0.125rem 0 0.625rem;
+  height: 2.25rem;
+  padding: 0;
   font-size: 13px;
   font-weight: 650;
   letter-spacing: -0.01em;
@@ -1705,22 +1702,19 @@ html[data-theme="light"] .home-card::before {
   text-underline-offset: 2px;
 }
 
-/* Read-only status box — echo of the Vellum todo checkbox */
+/* Read-only status box — verbatim TodoList checkbox metrics */
 .home-status {
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
   width: 1em;
   height: 1em;
-  font-size: 13px;
+  font-size: 15px;
   border-radius: 6px;
-  box-shadow: inset 0 0 0 1.25px color-mix(in oklab, currentColor 35%, transparent);
-}
-
-.home-status.is-fill {
-  background: var(--home-accent);
-  box-shadow: inset 0 0 0 1px var(--home-accent);
 }
 
 .home-row {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 0.625rem;
@@ -1728,6 +1722,18 @@ html[data-theme="light"] .home-card::before {
 
 .home-row .home-status {
   margin-top: 0.32em;
+}
+
+/* Animated strikethrough overlay (verbatim positioning) */
+.home-strike {
+  pointer-events: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1.5px;
+  transform-origin: left;
+  background: color-mix(in oklab, currentColor 45%, transparent);
 }
 
 .home-row-body {
@@ -1755,35 +1761,6 @@ html[data-theme="light"] .home-card::before {
   0%, 100% { opacity: 0.45; }
   50% { opacity: 1; }
 }
-
-/* Drag states */
-.home-card.is-dragging {
-  opacity: 0.85;
-  box-shadow:
-    0 4px 10px rgba(0, 0, 0, 0.22),
-    0 26px 58px -15px rgba(0, 0, 0, 0.46),
-    0 38px 90px -24px color-mix(in oklab, var(--home-accent) 42%, transparent);
-}
-
-.home-card.is-drop-target {
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.16),
-    0 10px 28px -12px rgba(0, 0, 0, 0.42),
-    0 0 0 2px color-mix(in oklab, var(--home-accent) 72%, transparent);
-}
-
-/* Per-card tints (from Vellum's note palette) */
-.home-tint-ocean { --home-tint: #10283e; --home-accent: #4cc9ff; }
-.home-tint-gold { --home-tint: #39351c; --home-accent: #f7d44c; }
-.home-tint-violet { --home-tint: #2a2050; --home-accent: #a78bfa; }
-.home-tint-forest { --home-tint: #143128; --home-accent: #66e3a4; }
-.home-tint-plum { --home-tint: #31203d; --home-accent: #e78bff; }
-
-html[data-theme="light"] .home-tint-ocean { --home-tint: #dff4ff; --home-accent: #0096d6; }
-html[data-theme="light"] .home-tint-gold { --home-tint: #fff5c9; --home-accent: #b78500; }
-html[data-theme="light"] .home-tint-violet { --home-tint: #eee7ff; --home-accent: #7652df; }
-html[data-theme="light"] .home-tint-forest { --home-tint: #e0f7e9; --home-accent: #16965a; }
-html[data-theme="light"] .home-tint-plum { --home-tint: #f6e5ff; --home-accent: #a73bd0; }
 
 @media (max-width: 800px) {
   .home-grid {
