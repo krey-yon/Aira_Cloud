@@ -1,4 +1,4 @@
-export type PanelId = "logs" | "schedule" | "watchers" | "errors" | "mail" | "skills";
+export type PanelId = "logs" | "schedule" | "watchers" | "errors" | "mail" | "skills" | "kv";
 
 export type LogFilter = "all" | "jobs" | "tools" | "errors" | "server";
 
@@ -9,6 +9,7 @@ export type ConsoleNav =
   | { panel: "watchers"; selectedId: string | null; draft: boolean }
   | { panel: "errors"; selectedId: string | null }
   | { panel: "mail" }
+  | { panel: "kv" }
   | { panel: "skills"; selectedId: string | null };
 
 export function idle(): ConsoleNav {
@@ -38,12 +39,13 @@ export function openPanel(current: ConsoleNav, panel: PanelId): ConsoleNav {
   if (panel === "schedule") return { panel: "schedule", selectedId: null };
   if (panel === "errors") return { panel: "errors", selectedId: null };
   if (panel === "mail") return { panel: "mail" };
+  if (panel === "kv") return { panel: "kv" };
   if (panel === "skills") return { panel: "skills", selectedId: null };
   return { panel: "watchers", selectedId: null, draft: false };
 }
 
 export function selectInPanel(current: ConsoleNav, id: string | null): ConsoleNav {
-  if (current.panel === "idle" || current.panel === "mail") return current;
+  if (current.panel === "idle" || current.panel === "mail" || current.panel === "kv") return current;
   if (current.panel === "logs") return { ...current, selectedId: id };
   if (current.panel === "schedule") return { ...current, selectedId: id };
   if (current.panel === "errors") return { ...current, selectedId: id };

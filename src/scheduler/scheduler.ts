@@ -1,5 +1,5 @@
 import { config } from "../config";
-import { RedisTaskStore } from "./redis-store";
+import { ResilientTaskStore } from "./fallback-store";
 import { SqliteTaskStore, type TaskStoreApi } from "./store";
 import {
   newTaskId,
@@ -15,7 +15,7 @@ export type TaskExecutor = (task: ScheduledTask) => Promise<{
 }>;
 
 function createDefaultStore(): TaskStoreApi {
-  if (config.redisUrl) return new RedisTaskStore();
+  if (config.redisUrl) return new ResilientTaskStore();
   return new SqliteTaskStore(config.schedulerDbPath);
 }
 

@@ -5,7 +5,7 @@ import type { PanelId } from "../../shell/nav";
 import type { LoadState } from "../../shell/usePolled";
 import type { CanvasPageView, ScheduledTaskView } from "../../api/parse";
 import { EASE_OUT, NOTE_SPRING, buildCardShadow, HOME_TINTS } from "../../lib/vellum";
-import { playSound } from "../../lib/sounds";
+import { playSound, type SoundName } from "../../lib/sounds";
 import { useSchedule } from "../schedule/useSchedule";
 import { useMailBoard, type MailBoard } from "../mail/useMailBoard";
 import { useCanvases } from "./useCanvases";
@@ -18,10 +18,19 @@ type CardId = "schedulers" | "reminders" | "canvas" | "drafts" | "scheduled-mail
 
 const ROW_CAP = 5;
 const REMINDER_WINDOW_MS = 24 * 3_600_000;
-const ORDER_KEY = "aira:home-order";
-/** Verbatim from spatial-notes canvas.drag.threshold — constant sensitivity. */
+const POSITIONS_KEY = "aira:home-positions";
+/** Verbatim from spatial-notes canvas.drag.threshold. */
 const DRAG_THRESHOLD_PX = 4;
 const ALL_CARDS: CardId[] = ["schedulers", "reminders", "canvas", "drafts", "scheduled-mail"];
+
+/** First-run scatter slots, as fractions of canvas size. */
+const DEFAULT_POSITIONS: Record<CardId, { x: number; y: number }> = {
+  schedulers: { x: 0.05, y: 0.06 },
+  reminders: { x: 0.38, y: 0.02 },
+  canvas: { x: 0.7, y: 0.08 },
+  drafts: { x: 0.12, y: 0.55 },
+  "scheduled-mail": { x: 0.5, y: 0.58 },
+};
 
 const CARD_TINT: Record<CardId, keyof typeof HOME_TINTS> = {
   schedulers: "ocean",
@@ -31,26 +40,37 @@ const CARD_TINT: Record<CardId, keyof typeof HOME_TINTS> = {
   "scheduled-mail": "plum",
 };
 
-function loadOrder(): CardId[] {
+type Positions = Partial<Record<CardId, { x: number; y: number }>>;
+
+/** Audio must never break dragging — Vellum calls this in click handlers, ours runs mid-drag. */
+function safePlay(name: SoundName) {
   try {
-    const raw = localStorage.getItem(ORDER_KEY);
-    if (!raw) return ALL_CARDS;
-    const ids = (JSON.parse(raw) as unknown[]).filter(
-      (id): id is CardId => typeof id === "string" && (ALL_CARDS as string[]).includes(id),
-    );
-    return [...ids, ...ALL_CARDS.filter((id) => !ids.includes(id))];
+    playSound(name);
   } catch {
-    return ALL_CARDS;
+    // audio unavailable — interaction continues silently
   }
 }
 
-type DragState = {
-  sx: number;
-  sy: number;
-  moved: boolean;
-  offset: { x: number; y: number };
-  target: CardId | null;
-};
+function loadPositions(): Positions {
+  try {
+    const raw = localStorage.getItem(POSITIONS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: Positions = {};
+    for (const id of ALL_CARDS) {
+      const p = parsed[id] as { x?: unknown; y?: unknown } | undefined;
+      if (p && typeof p.x === "number" && typeof p.y === "number") {
+        out[id] = {
+          x: Math.min(0.99, Math.max(0, p.x)),
+          y: Math.min(0.99, Math.max(0, p.y)),
+        };
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
 
 /*
  * Status row — visual language ported verbatim from spatial-notes TodoList Row
@@ -137,56 +157,73 @@ function More({ count }: { count: number }) {
   return <div className="row-meta">+{count} more</div>;
 }
 
-function SkeletonCard({ tintKey }: { tintKey: keyof typeof HOME_TINTS }) {
+function SkeletonCard({ tintKey, pos }: { tintKey: keyof typeof HOME_TINTS; pos: { x: number; y: number } }) {
   const theme = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
   const t = HOME_TINTS[tintKey]!;
   return (
-    <section
-      className="home-card"
-      aria-label="Loading"
-      style={
-        {
-          backgroundColor: theme === "light" ? t.bgLight : t.bg,
-          "--note-accent": theme === "light" ? t.accentLight : t.accent,
-        } as React.CSSProperties
-      }
-    >
-      <div className="home-card-head">
-        <span className="home-card-pill" aria-hidden />
-        <span className="home-skeleton-block" style={{ height: 13, width: "55%" }} />
-      </div>
-      <div className="list">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="home-row">
-            <span className="home-skeleton-block" style={{ width: 13, height: 13 }} />
-            <div className="home-row-body">
-              <div className="home-skeleton-block" style={{ height: 14, width: `${85 - i * 12}%` }} />
-              <div
-                className="home-skeleton-block"
-                style={{ height: 11, width: "45%", marginTop: 6 }}
-              />
+    <div className="home-note" style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }}>
+      <section
+        className="home-card"
+        aria-label="Loading"
+        style={
+          {
+            backgroundColor: theme === "light" ? t.bgLight : t.bg,
+            "--note-accent": theme === "light" ? t.accentLight : t.accent,
+          } as React.CSSProperties
+        }
+      >
+        <div className="home-card-head">
+          <span className="home-card-pill" aria-hidden />
+          <span className="home-skeleton-block" style={{ height: 13, width: "55%" }} />
+        </div>
+        <div className="list">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="home-row">
+              <span className="home-skeleton-block" style={{ width: 13, height: 13 }} />
+              <div className="home-row-body">
+                <div className="home-skeleton-block" style={{ height: 14, width: `${85 - i * 12}%` }} />
+                <div
+                  className="home-skeleton-block"
+                  style={{ height: 11, width: "45%", marginTop: 6 }}
+                />
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-    </section>
+          ))}
+        </div>
+      </section>
+    </div>
   );
 }
+
+type DragSession = {
+  id: CardId;
+  sx: number;
+  sy: number;
+  ox: number;
+  oy: number;
+  dx: number;
+  dy: number;
+  moved: boolean;
+  rafId: number | null;
+};
 
 export function HomeOverview({ onOpen }: Props) {
   const schedule = useSchedule(true);
   const canvases = useCanvases(true);
   const mail = useMailBoard(true);
 
-  const [order, setOrder] = useState<CardId[]>(loadOrder);
+  const [positions, setPositions] = useState<Positions>(loadPositions);
   const [dragId, setDragId] = useState<CardId | null>(null);
-  const [drag, setDrag] = useState<DragState | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const dragRef = useRef<{ id: CardId; sx: number; sy: number; moved: boolean } | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const wrappers = useRef(new Map<CardId, HTMLDivElement>());
+  const dragRef = useRef<DragSession | null>(null);
   const suppressClick = useRef(false);
 
+  // Cleanup any in-flight RAF if the home unmounts mid-drag (verbatim Vellum guard).
   useEffect(() => {
     return () => {
+      if (dragRef.current?.rafId) cancelAnimationFrame(dragRef.current.rafId);
       dragRef.current = null;
     };
   }, []);
@@ -198,12 +235,10 @@ export function HomeOverview({ onOpen }: Props) {
 
   if (!allLoaded) {
     return (
-      <div className="home-grid">
-        <SkeletonCard tintKey="ocean" />
-        <SkeletonCard tintKey="gold" />
-        <SkeletonCard tintKey="violet" />
-        <SkeletonCard tintKey="forest" />
-        <SkeletonCard tintKey="plum" />
+      <div className="home-canvas">
+        {(Object.keys(DEFAULT_POSITIONS) as CardId[]).map((id) => (
+          <SkeletonCard key={id} tintKey={CARD_TINT[id]} pos={DEFAULT_POSITIONS[id]!} />
+        ))}
       </div>
     );
   }
@@ -231,35 +266,52 @@ export function HomeOverview({ onOpen }: Props) {
   const showDrafts = mail.error != null || mail.board.drafts.length > 0;
   const showScheduledMail = mail.error != null || mail.board.scheduled.length > 0;
 
-  const visible = new Set<CardId>(
-    [
-      showSchedulers && "schedulers",
-      showReminders && "reminders",
-      showCanvas && "canvas",
-      showDrafts && "drafts",
-      showScheduledMail && "scheduled-mail",
-    ].filter((id): id is CardId => id !== false),
-  );
-  const ordered = order.filter((id) => visible.has(id));
+  const visible = ALL_CARDS.filter((id) => {
+    if (id === "schedulers") return showSchedulers;
+    if (id === "reminders") return showReminders;
+    if (id === "canvas") return showCanvas;
+    if (id === "drafts") return showDrafts;
+    return showScheduledMail;
+  });
 
-  function persist(next: CardId[]) {
-    setOrder(next);
+  function persist(next: Positions) {
+    setPositions(next);
     try {
-      localStorage.setItem(ORDER_KEY, JSON.stringify(next));
+      localStorage.setItem(POSITIONS_KEY, JSON.stringify(next));
     } catch {
-      // private mode — order just won't survive reload
+      // private mode — positions just won't survive reload
     }
   }
 
-  function cardUnder(x: number, y: number): CardId | null {
-    const el = document.elementFromPoint(x, y)?.closest?.("[data-card-id]");
-    const id = el?.getAttribute("data-card-id");
-    return id && (ALL_CARDS as string[]).includes(id) ? (id as CardId) : null;
+  function narrow(): boolean {
+    return window.innerWidth <= 800;
+  }
+
+  // ─── Drag (verbatim Vellum pointer flow on the outer wrapper) ──────────
+  function applyDragTransform() {
+    const s = dragRef.current;
+    if (!s) return;
+    s.rafId = null;
+    const el = wrappers.current.get(s.id);
+    if (el) el.style.transform = `translate3d(${s.dx}px, ${s.dy}px, 0)`;
   }
 
   function onHeadDown(e: React.PointerEvent, id: CardId) {
+    if (narrow()) return;
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-    dragRef.current = { id, sx: e.clientX, sy: e.clientY, moved: false };
+    const pos = positions[id] ?? DEFAULT_POSITIONS[id]!;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    dragRef.current = {
+      id,
+      sx: e.clientX,
+      sy: e.clientY,
+      ox: pos.x * (rect?.width ?? 1),
+      oy: pos.y * (rect?.height ?? 1),
+      dx: 0,
+      dy: 0,
+      moved: false,
+      rafId: null,
+    };
   }
 
   function onHeadMove(e: React.PointerEvent) {
@@ -270,10 +322,12 @@ export function HomeOverview({ onOpen }: Props) {
     if (!s.moved && Math.hypot(dx, dy) > DRAG_THRESHOLD_PX) {
       s.moved = true;
       setDragId(s.id);
-      playSound("pickup");
+      safePlay("pickup");
     }
     if (s.moved) {
-      setDrag({ sx: s.sx, sy: s.sy, moved: true, offset: { x: dx, y: dy }, target: cardUnder(e.clientX, e.clientY) });
+      s.dx = dx;
+      s.dy = dy;
+      if (s.rafId === null) s.rafId = requestAnimationFrame(applyDragTransform);
     }
   }
 
@@ -281,21 +335,20 @@ export function HomeOverview({ onOpen }: Props) {
     const s = dragRef.current;
     dragRef.current = null;
     (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
-    if (!s?.moved) return;
+    if (!s) return;
+    if (s.rafId !== null) cancelAnimationFrame(s.rafId);
+    const el = wrappers.current.get(s.id);
+    if (el) el.style.transform = "";
+    if (!s.moved) return;
     suppressClick.current = true;
-    const target = cardUnder(e.clientX, e.clientY);
-    if (target && target !== s.id) {
-      const without = order.filter((id) => id !== s.id);
-      const at = without.indexOf(target);
-      // Drop below the target's midpoint → insert after, else before.
-      const rect = document.querySelector(`[data-card-id="${target}"]`)?.getBoundingClientRect();
-      const after = rect ? e.clientY > rect.top + rect.height / 2 : false;
-      without.splice(after ? at + 1 : at, 0, s.id);
-      persist(without);
-      playSound("drop");
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (rect && rect.width > 0 && rect.height > 0) {
+      const x = Math.min(0.99, Math.max(0, (s.ox + s.dx) / rect.width));
+      const y = Math.min(0.99, Math.max(0, (s.oy + s.dy) / rect.height));
+      persist({ ...positions, [s.id]: { x, y } });
+      safePlay("drop");
     }
     setDragId(null);
-    setDrag(null);
   }
 
   function openPanel(panel: PanelId) {
@@ -303,12 +356,12 @@ export function HomeOverview({ onOpen }: Props) {
       suppressClick.current = false;
       return;
     }
-    playSound("tapSoft");
+    safePlay("tapSoft");
     onOpen(panel);
   }
 
   async function copy(url: string, id: string) {
-    playSound("toggle");
+    safePlay("toggle");
     try {
       await navigator.clipboard.writeText(`${window.location.origin}${url}`);
       setCopiedId(id);
@@ -319,73 +372,82 @@ export function HomeOverview({ onOpen }: Props) {
   }
 
   // No banner: empty means a clear canvas.
-  if (ordered.length === 0) {
-    return <div className="home-grid" />;
+  if (visible.length === 0) {
+    return <div className="home-canvas" />;
   }
 
   const theme = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
 
   return (
-    <div className="home-grid">
+    <div className="home-canvas" ref={canvasRef}>
       <AnimatePresence initial={false}>
-        {ordered.map((id) => {
+        {visible.map((id) => {
           const t = HOME_TINTS[CARD_TINT[id]]!;
           const accent = theme === "light" ? t.accentLight : t.accent;
           const dragging = dragId === id;
-          const dropTarget = drag?.target === id && !dragging;
-          const offset = dragging && drag ? drag.offset : { x: 0, y: 0 };
-          const mode = dragging ? "dragging" : dropTarget ? "selected" : "rest";
+          const pos = positions[id] ?? DEFAULT_POSITIONS[id]!;
           return (
-            <motion.section
+            <div
               key={id}
               data-card-id={id}
-              layout
-              initial={{ opacity: 0, scale: 0.92, y: 8 }}
-              animate={{
-                opacity: 1,
-                scale: dragging ? 1.035 : 1,
-                x: offset.x,
-                y: offset.y,
-                boxShadow: buildCardShadow(accent, mode),
+              ref={(el) => {
+                if (el) wrappers.current.set(id, el);
+                else wrappers.current.delete(id);
               }}
-              exit={{ opacity: 0, scale: 0.9, y: -6, transition: { duration: 0.18 } }}
-              transition={dragging ? { duration: 0.18, ease: EASE_OUT } : NOTE_SPRING}
-              whileHover={dragging ? undefined : { y: -1 }}
-              style={
-                {
-                  backgroundColor: theme === "light" ? t.bgLight : t.bg,
-                  "--note-accent": accent,
-                  zIndex: dragging ? 50 : 10,
-                } as React.CSSProperties
-              }
-              className="home-card"
+              className="home-note"
+              style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }}
             >
-              <div
-                className="home-card-head"
-                onPointerDown={(e) => onHeadDown(e, id)}
-                onPointerMove={onHeadMove}
-                onPointerUp={onHeadUp}
-                onPointerCancel={() => {
-                  dragRef.current = null;
-                  setDragId(null);
-                  setDrag(null);
+              <motion.section
+                initial={{ opacity: 0, scale: 0.92, y: 8 }}
+                animate={{
+                  opacity: 1,
+                  scale: dragging ? 1.035 : 1,
+                  boxShadow: buildCardShadow(accent, dragging ? "dragging" : "rest"),
                 }}
+                exit={{ opacity: 0, scale: 0.9, y: -6, transition: { duration: 0.18 } }}
+                transition={dragging ? { duration: 0.18, ease: EASE_OUT } : NOTE_SPRING}
+                whileHover={dragging ? undefined : { y: -1 }}
+                style={
+                  {
+                    backgroundColor: theme === "light" ? t.bgLight : t.bg,
+                    "--note-accent": accent,
+                    zIndex: dragging ? 50 : 10,
+                    willChange: dragging ? "transform" : "auto",
+                  } as React.CSSProperties
+                }
+                className="home-card"
+                aria-label={cardTitle(id)}
               >
-                <span className="home-card-pill" aria-hidden />
-                <button
-                  type="button"
-                  className="home-card-title"
-                  onClick={() => openPanel(cardPanel(id))}
+                <div
+                  className="home-card-head"
+                  onPointerDown={(e) => onHeadDown(e, id)}
+                  onPointerMove={onHeadMove}
+                  onPointerUp={onHeadUp}
+                  onPointerCancel={() => {
+                    const s = dragRef.current;
+                    if (s?.rafId) cancelAnimationFrame(s.rafId);
+                    dragRef.current = null;
+                    const ell = wrappers.current.get(id);
+                    if (ell) ell.style.transform = "";
+                    setDragId(null);
+                  }}
                 >
-                  {cardTitle(id)}
-                </button>
-                <span className="home-card-open" aria-hidden>
-                  →
-                </span>
-              </div>
-              {renderCardBody(id, { schedule, tasks, due, canvases, pages, mail, copiedId, copy })}
-              <div className="home-card-stamp">{renderStamp(id, { tasks, due, pages, mail })}</div>
-            </motion.section>
+                  <span className="home-card-pill" aria-hidden />
+                  <button
+                    type="button"
+                    className="home-card-title"
+                    onClick={() => openPanel(cardPanel(id))}
+                  >
+                    {cardTitle(id)}
+                  </button>
+                  <span className="home-card-open" aria-hidden>
+                    →
+                  </span>
+                </div>
+                {renderCardBody(id, { schedule, tasks, due, canvases, pages, mail, copiedId, copy })}
+                <div className="home-card-stamp">{renderStamp(id, { tasks, due, pages, mail })}</div>
+              </motion.section>
+            </div>
           );
         })}
       </AnimatePresence>

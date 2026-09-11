@@ -1,4 +1,6 @@
 const TOKEN_KEY = "airaCloudToken";
+const COOKIE_NAME = "airaCloudToken";
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 export function ensureTokenFromUrl() {
   const url = new URL(window.location.href);
@@ -11,6 +13,15 @@ export function ensureTokenFromUrl() {
 }
 
 export function getToken(): string | null {
+  try {
+    const match = document.cookie
+      .split("; ")
+      .find((part) => part.startsWith(`${COOKIE_NAME}=`));
+    if (match) {
+      const value = decodeURIComponent(match.slice(COOKIE_NAME.length + 1));
+      if (value) return value;
+    }
+  } catch {}
   try {
     const local = localStorage.getItem(TOKEN_KEY);
     if (local) return local;
@@ -28,14 +39,24 @@ export function getToken(): string | null {
 export function setToken(token: string) {
   const next = token.trim();
   try {
+    const secure = window.location.protocol === "https:" ? "; Secure" : "";
+    document.cookie =
+      `${COOKIE_NAME}=${encodeURIComponent(next)}; Path=/; Max-Age=${COOKIE_MAX_AGE}; SameSite=Lax${secure}`;
+  } catch {}
+  try {
     localStorage.setItem(TOKEN_KEY, next);
     sessionStorage.removeItem(TOKEN_KEY);
   } catch {
-    sessionStorage.setItem(TOKEN_KEY, next);
+    try {
+      sessionStorage.setItem(TOKEN_KEY, next);
+    } catch {}
   }
 }
 
 export function clearToken() {
+  try {
+    document.cookie = `${COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
+  } catch {}
   try {
     localStorage.removeItem(TOKEN_KEY);
   } catch {}

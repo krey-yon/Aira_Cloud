@@ -55,7 +55,7 @@ export function AuthGate({ message, onAuthed }: Props) {
             </div>
           </div>
           <p className="auth-copy">
-            {message ?? "Paste the same CLOUD_TOKEN your extension uses. It stays in localStorage on this device."}
+            {message ?? "Paste the same CLOUD_TOKEN your extension uses. It stays in a cookie on this device."}
           </p>
           <label className="auth-label" htmlFor="aira-token">
             Token

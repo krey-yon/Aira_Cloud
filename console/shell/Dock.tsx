@@ -129,6 +129,26 @@ export function Dock({
             />
           </svg>
         </IconButton>
+        <IconButton
+          label="Parameters"
+          active={active === "kv"}
+          onClick={() => onOpen("kv")}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+            <path
+              d="M5.5 8.5a2.5 2.5 0 003.5 0l1.5-1.5a2.5 2.5 0 00-3.5-3.5L6.2 4.3"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+            />
+            <path
+              d="M8.5 5.5a2.5 2.5 0 00-3.5 0L3.5 7a2.5 2.5 0 003.5 3.5l.8-.8"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+            />
+          </svg>
+        </IconButton>
         <span className="dock-divider" />
         <IconButton
           label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}

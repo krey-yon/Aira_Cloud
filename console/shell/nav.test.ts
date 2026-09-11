@@ -49,6 +49,13 @@ test("mail panel is { panel: mail } only and toggles like other panels", () => {
   });
 });
 
+test("kv panel toggles like mail (no selection state)", () => {
+  const kv = openPanel(idle(), "kv");
+  expect(kv).toEqual({ panel: "kv" });
+  expect(selectInPanel(kv, "anything")).toEqual({ panel: "kv" });
+  expect(openPanel(kv, "kv")).toEqual(idle());
+});
+
 test("skills panel selects and clears like other detail panels", () => {
   const skills = openPanel(idle(), "skills");
   expect(skills).toEqual({ panel: "skills", selectedId: null });

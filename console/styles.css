@@ -830,28 +830,6 @@ html[data-theme="light"] .glass {
   border-color: color-mix(in oklab, var(--color-accent-emerald) 28%, transparent);
 }
 
-.logout-btn {
-  position: fixed;
-  top: 1.5rem;
-  right: 1.5rem;
-  z-index: 50;
-  pointer-events: auto;
-  backdrop-filter: blur(16px) saturate(150%);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
-  animation: logout-in 420ms var(--ease-out) both;
-}
-
-@keyframes logout-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.92);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
 .row-title-actions {
   display: inline-flex;
   align-items: center;
@@ -1551,7 +1529,7 @@ html[data-theme="light"] .glass {
   }
 }
 
-.home-grid {
+.home-canvas {
   position: absolute;
   top: 4.75rem;
   left: 50%;
@@ -1559,12 +1537,19 @@ html[data-theme="light"] .glass {
   z-index: 10;
   width: min(64rem, calc(100vw - 2rem));
   transform: translateX(-50%);
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
-  gap: 0.875rem;
-  align-content: start;
-  overflow-y: auto;
+  overflow: auto;
   padding: 0.25rem 0.25rem 1rem;
+}
+
+/* Freeform note wrapper — positioned by left/top fractions */
+.home-note {
+  position: absolute;
+  width: 19rem;
+  max-width: calc(100% - 0.5rem);
+}
+
+.home-card {
+  width: 100%;
 }
 
 /*
@@ -1763,7 +1748,15 @@ html[data-theme="light"] .home-card::before {
 }
 
 @media (max-width: 800px) {
-  .home-grid {
-    grid-template-columns: 1fr;
+  .home-canvas {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+  }
+  .home-note {
+    position: static;
+    width: 100%;
+    max-width: 100%;
   }
 }

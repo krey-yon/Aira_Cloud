@@ -15,6 +15,19 @@ export function extractBearer(req: Request): string | undefined {
   const header = req.headers.get("authorization") || "";
   const match = /^Bearer\s+(.+)$/i.exec(header);
   if (match?.[1]) return match[1].trim();
+  const cookie = req.headers.get("cookie") || "";
+  const crumb = cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith("airaCloudToken="));
+  if (crumb) {
+    try {
+      const value = decodeURIComponent(crumb.slice("airaCloudToken=".length));
+      if (value) return value.trim();
+    } catch {
+      // malformed cookie — fall through to query param
+    }
+  }
   const url = new URL(req.url);
   return url.searchParams.get("token")?.trim() || undefined;
 }

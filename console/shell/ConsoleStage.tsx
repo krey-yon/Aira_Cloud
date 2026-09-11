@@ -2,9 +2,9 @@ import type { ConsoleNav, LogFilter, PanelId } from "./nav";
 import { useGmail } from "./useGmail";
 import { BrandPill } from "./BrandPill";
 import { Dock } from "./Dock";
-import { LogoutButton } from "./LogoutButton";
 import { ErrorsSheet } from "../panels/errors/ErrorsSheet";
 import { HomeOverview } from "../panels/home/HomeOverview";
+import { KvSheet } from "../panels/kv/KvSheet";
 import { LogsSheet } from "../panels/logs/LogsSheet";
 import { MailSheet } from "../panels/mail/MailSheet";
 import { ScheduleSheet } from "../panels/schedule/ScheduleSheet";
@@ -20,7 +20,6 @@ type Props = {
   onFilter: (filter: LogFilter) => void;
   onDraft: () => void;
   onToggleTheme: () => void;
-  onLogout: () => void;
 };
 
 function subtitleFor(nav: ConsoleNav, gmailEmail: string | null): string {
@@ -30,6 +29,7 @@ function subtitleFor(nav: ConsoleNav, gmailEmail: string | null): string {
   if (nav.panel === "errors") return "errors";
   if (nav.panel === "skills") return "skills";
   if (nav.panel === "mail") return gmailEmail ? gmailEmail : "mail";
+  if (nav.panel === "kv") return "params";
   return nav.draft ? "watchers · draft" : "watchers";
 }
 
@@ -42,7 +42,6 @@ export function ConsoleStage({
   onFilter,
   onDraft,
   onToggleTheme,
-  onLogout,
 }: Props) {
   const active = nav.panel === "idle" ? null : nav.panel;
   const gmail = useGmail(true);
@@ -56,7 +55,6 @@ export function ConsoleStage({
       <div className="noise-overlay" aria-hidden />
 
       <BrandPill subtitle={subtitleFor(nav, gmail.status?.email ?? null)} />
-      <LogoutButton onLogout={onLogout} />
 
       {nav.panel === "idle" && <HomeOverview onOpen={onOpen} />}
 
@@ -77,6 +75,7 @@ export function ConsoleStage({
       {nav.panel === "skills" && (
         <SkillsSheet nav={nav} onClose={onClose} onSelect={onSelect} />
       )}
+      {nav.panel === "kv" && <KvSheet onClose={onClose} />}
 
       <Dock
         active={active}
