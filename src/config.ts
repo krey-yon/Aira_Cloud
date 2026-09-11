@@ -105,6 +105,8 @@ export const config = {
     "https://aira.kreyon.in",
   /** Answers longer than this word count open on the canvas instead of the widget. */
   canvasWordCap: Number(process.env.CANVAS_WORD_CAP ?? 120),
+  /** Canvas pages expire this long after creation (ms). */
+  canvasTtlMs: Number(process.env.CANVAS_TTL_MS ?? 3_600_000),
   /** Google OAuth client for Gmail send/read. */
   googleClientId: process.env.CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID ?? "",
   googleClientSecret: process.env.CLIENT_SECRET ?? process.env.GOOGLE_CLIENT_SECRET ?? "",

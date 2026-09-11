@@ -28,8 +28,7 @@ export type ScheduledTaskView = {
   updatedAt: string;
 };
 
-export type WatcherView = {
-  id: string;
+export type WatcherView = {  id: string;
   title: string;
   prompt: string;
   resourceUrl?: string;
@@ -104,6 +103,34 @@ export function parseTaskList(raw: unknown): ScheduledTaskView[] {
   const tasks = (raw as { tasks?: unknown }).tasks;
   if (!Array.isArray(tasks)) return [];
   return tasks.map(parseTask).filter((t): t is ScheduledTaskView => t != null);
+}
+
+export type CanvasPageView = {
+  id: string;
+  title: string;
+  createdAt: string;
+  expiresAt: string;
+  url: string;
+};
+
+export function parseCanvasPage(raw: unknown): CanvasPageView | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.id !== "string" || typeof o.url !== "string") return null;
+  return {
+    id: o.id,
+    title: typeof o.title === "string" ? o.title : "Aira answer",
+    createdAt: typeof o.createdAt === "string" ? o.createdAt : "",
+    expiresAt: typeof o.expiresAt === "string" ? o.expiresAt : "",
+    url: o.url,
+  };
+}
+
+export function parseCanvasList(raw: unknown): CanvasPageView[] {
+  if (!raw || typeof raw !== "object") return [];
+  const canvases = (raw as { canvases?: unknown }).canvases;
+  if (!Array.isArray(canvases)) return [];
+  return canvases.map(parseCanvasPage).filter((c): c is CanvasPageView => c != null);
 }
 
 export function parseWatcher(raw: unknown): WatcherView | null {

@@ -4,6 +4,7 @@ import { BrandPill } from "./BrandPill";
 import { Dock } from "./Dock";
 import { LogoutButton } from "./LogoutButton";
 import { ErrorsSheet } from "../panels/errors/ErrorsSheet";
+import { HomeOverview } from "../panels/home/HomeOverview";
 import { LogsSheet } from "../panels/logs/LogsSheet";
 import { MailSheet } from "../panels/mail/MailSheet";
 import { ScheduleSheet } from "../panels/schedule/ScheduleSheet";
@@ -56,6 +57,8 @@ export function ConsoleStage({
 
       <BrandPill subtitle={subtitleFor(nav, gmail.status?.email ?? null)} />
       <LogoutButton onLogout={onLogout} />
+
+      {nav.panel === "idle" && <HomeOverview onOpen={onOpen} />}
 
       {nav.panel === "mail" && <MailSheet gmail={gmail} onClose={onClose} />}
 

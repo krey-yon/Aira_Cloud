@@ -675,6 +675,27 @@ export function createRoutes(deps: AppDeps) {
         });
       },
     },
+    "/v1/canvases": {
+      GET: (req: Request) => {
+        const denied = requireAuth(req); if (denied) return denied;
+        const url = new URL(req.url);
+        const limit = Number(url.searchParams.get("limit") ?? 10);
+        return json({
+          canvases: canvases.list(Number.isFinite(limit) ? limit : 10).map((c) => {
+            const createdMs = Date.parse(c.createdAt);
+            return {
+              id: c.id,
+              title: c.title,
+              createdAt: c.createdAt,
+              expiresAt: Number.isFinite(createdMs)
+                ? new Date(createdMs + config.canvasTtlMs).toISOString()
+                : c.createdAt,
+              url: `/r/${c.id}`,
+            };
+          }),
+        });
+      },
+    },
     "/v1/presence": {
       GET: (req: Request) => {
         const denied = requireAuth(req); if (denied) return denied;
