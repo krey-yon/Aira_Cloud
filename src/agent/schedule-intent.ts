@@ -24,11 +24,29 @@ function asObject(result: unknown): Record<string, unknown> | null {
 export function scheduleToolSucceeded(
   toolCalls: { name: string; result?: unknown }[] | undefined,
 ): boolean {
-  if (!toolCalls) return false;
+  return scheduleTaskFailureReason(toolCalls) === null;
+}
+
+/** Null when a schedule_task call returned ok:true; otherwise a human-readable reason. */
+export function scheduleTaskFailureReason(
+  toolCalls: { name: string; result?: unknown }[] | undefined,
+): string | null {
+  if (!toolCalls) return "the schedule_task tool was not called";
+  let sawSchedule = false;
+  let lastError: string | null = null;
   for (const call of toolCalls) {
     if (call.name !== "schedule_task") continue;
+    sawSchedule = true;
     const parsed = asObject(call.result);
-    if (parsed?.ok === true) return true;
+    if (parsed?.ok === true) return null;
+    const raw =
+      parsed && typeof parsed.error === "string" && parsed.error.trim()
+        ? parsed.error.trim()
+        : typeof call.result === "string" && call.result.trim()
+          ? call.result.trim().slice(0, 280)
+          : "";
+    lastError = raw || "it returned ok: false";
   }
-  return false;
+  if (!sawSchedule) return "the schedule_task tool was not called";
+  return lastError ?? "it returned ok: false";
 }

@@ -10,11 +10,11 @@ type Props = {
 const VB_W = 920;
 const VB_H = 700;
 
-function linkStyle(a: GraphNode | undefined, b: GraphNode | undefined) {
+function linkClass(a: GraphNode | undefined, b: GraphNode | undefined) {
   const depth = Math.max(a?.tier ?? 3, b?.tier ?? 3);
-  if (depth <= 1) return { stroke: "#d1d5db", strokeWidth: 1.5 };
-  if (depth === 2) return { stroke: "#e5e7eb", strokeWidth: 1 };
-  return { stroke: "#e5e7eb", strokeWidth: 0.75 };
+  if (depth <= 1) return "skill-link-d1";
+  if (depth === 2) return "skill-link-d2";
+  return "skill-link-d3";
 }
 
 function nodeVisual(tier: GraphNode["tier"]) {
@@ -165,10 +165,10 @@ export function SkillGraph({ nodes, links, onSelect }: Props) {
   if (nodes.length === 0) return <p className="skills-empty">No skills to graph yet.</p>;
 
   return (
-    <div className="relative w-full h-full skills-graph-wrap">
+    <div className="skills-graph-wrap">
       <svg
         ref={svgRef}
-        className={`w-full h-full skills-graph-svg${grabbing ? " is-grabbing" : ""}`}
+        className={`skills-graph-svg${grabbing ? " is-grabbing" : ""}`}
         data-skill-graph={ready ? "ready" : "loading"}
         viewBox={`0 0 ${VB_W} ${VB_H}`}
         role="img"
@@ -186,7 +186,6 @@ export function SkillGraph({ nodes, links, onSelect }: Props) {
               const from = placedById.get(link.from);
               const to = placedById.get(link.to);
               if (!from || !to) return null;
-              const style = linkStyle(byId.get(link.from), byId.get(link.to));
               return (
                 <line
                   key={`${link.from}-${link.to}-${link.kind}`}
@@ -194,9 +193,7 @@ export function SkillGraph({ nodes, links, onSelect }: Props) {
                   y1={from.y}
                   x2={to.x}
                   y2={to.y}
-                  stroke={style.stroke}
-                  strokeWidth={style.strokeWidth}
-                  style={{ opacity: 1 }}
+                  className={linkClass(byId.get(link.from), byId.get(link.to))}
                 />
               );
             })}
@@ -209,7 +206,7 @@ export function SkillGraph({ nodes, links, onSelect }: Props) {
                 <g
                   key={node.id}
                   transform={`translate(${node.x}, ${node.y})`}
-                  className={isHub ? "cursor-default" : "cursor-grab active:cursor-grabbing"}
+                  className={isHub ? "cursor-default" : undefined}
                   onPointerDown={(e) => {
                     if (!isHub) onNodePointerDown(e, node.id);
                   }}
@@ -246,20 +243,16 @@ export function SkillGraph({ nodes, links, onSelect }: Props) {
                           r={v.r}
                           className={
                             node.tier === 1
-                              ? "skill-tier-1 dark:fill-black dark:stroke-gray-600"
+                              ? "skill-tier-1"
                               : node.tier === 2
-                                ? "skill-tier-2 dark:fill-black dark:stroke-gray-600"
-                                : "skill-tier-3 dark:fill-black dark:stroke-gray-600"
+                                ? "skill-tier-2"
+                                : "skill-tier-3"
                           }
-                          fill={node.tier === 3 ? "#f3f4f6" : "#ffffff"}
-                          stroke={node.tier === 1 ? "#9ca3af" : node.tier === 2 ? "#c4b5fd" : "#d1d5db"}
-                          strokeWidth={node.tier === 1 ? 2 : node.tier === 2 ? 1.5 : 1}
-                          style={{ filter: "none" }}
                         />
                         <text
                           y={v.labelY}
                           textAnchor="middle"
-                          className="fill-gray-600 dark:fill-gray-300 font-sans pointer-events-none select-none"
+                          className="skill-label"
                           style={{ fontSize: `${v.fontSize}px` }}
                         >
                           {node.label}

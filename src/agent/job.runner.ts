@@ -1,7 +1,7 @@
 import type { PageContext } from "../shared/agent";
 import { extractAskUser } from "../shared/ask-user-parse";
 import {
-  scheduleToolSucceeded,
+  scheduleTaskFailureReason,
   wantsSchedule,
 } from "./schedule-intent";
 import { requestContext } from "../realtime/request-context";
@@ -234,18 +234,16 @@ export class JobRunner {
 
       const askUserFromProse = extractAskUser(result.content);
       let content = result.content;
-      if (
-        !askUserFromProse &&
-        wantsSchedule(job.text) &&
-        !scheduleToolSucceeded(result.toolCalls)
-      ) {
-        content =
-          "Scheduling did not happen. The schedule_task tool was not called or it returned ok: false, so nothing was added to the queue.";
-        this.note(
-          job,
-          "status",
-          "schedule_task missing or failed; not claiming success",
-        );
+      if (!askUserFromProse && wantsSchedule(job.text)) {
+        const failureReason = scheduleTaskFailureReason(result.toolCalls);
+        if (failureReason) {
+          content =
+            `Scheduling did not happen — ${failureReason}, so nothing was added to the queue.` +
+            ` Try again with a future time (e.g. "in 10 minutes").`;
+          this.note(job, "status", `schedule_task missing or failed: ${failureReason}`, {
+            toolCalls: result.toolCalls,
+          });
+        }
       }
 
       this.jobs.update(job.id, {

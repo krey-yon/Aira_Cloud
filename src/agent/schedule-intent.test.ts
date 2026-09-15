@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { scheduleToolSucceeded, wantsSchedule } from "./schedule-intent";
+import { scheduleTaskFailureReason, scheduleToolSucceeded, wantsSchedule } from "./schedule-intent";
 
 describe("wantsSchedule", () => {
   test("matches remind, schedule, later, tomorrow, and relative delays", () => {
@@ -52,5 +52,22 @@ describe("scheduleToolSucceeded", () => {
         { name: "schedule_task", result: '{"ok":false,"error":"nope"}' },
       ]),
     ).toBe(false);
+  });
+});
+
+describe("scheduleTaskFailureReason", () => {
+  test("is null on success, surfaces tool error otherwise", () => {
+    expect(
+      scheduleTaskFailureReason([
+        { name: "schedule_task", result: { ok: true, task: { id: "task_1" } } },
+      ]),
+    ).toBeNull();
+    expect(scheduleTaskFailureReason(undefined)).toContain("not called");
+    expect(scheduleTaskFailureReason([])).toContain("not called");
+    expect(
+      scheduleTaskFailureReason([
+        { name: "schedule_task", result: { ok: false, error: "runAt is in the past" } },
+      ]),
+    ).toContain("in the past");
   });
 });
