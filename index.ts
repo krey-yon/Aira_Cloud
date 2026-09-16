@@ -10,6 +10,7 @@ import { getCanvasStore } from "./src/canvas/canvas.store";
 import { initSkills } from "./src/skills";
 import { getNotifyQueue } from "./src/watchers/notify.queue";
 import { bindQuestionBridge } from "./src/questions/question.bridge";
+import { getAnimeRunner } from "./src/anime/anime.runner";
 import { getWatcherRunner } from "./src/watchers/watcher.runner";
 import { ensureSolanaIndiaGrantsWatcher } from "./src/watchers/watcher.seeds";
 import { getWatcherStore } from "./src/watchers/watcher.store";
@@ -37,6 +38,7 @@ const logs = getLogRing();
 const watchers = getWatcherStore();
 const notifyQueue = getNotifyQueue();
 const watcherRunner = getWatcherRunner(clients);
+const animeRunner = getAnimeRunner();
 const canvases = getCanvasStore();
 bindQuestionBridge(clients);
 
@@ -52,6 +54,7 @@ scheduler.setExecutor(createSchedulerExecutor({ logs, clients, agent }));
 scheduler.start();
 ensureSolanaIndiaGrantsWatcher();
 watcherRunner.start(config.watcherTickMs);
+animeRunner.start(config.watcherTickMs);
 
 const deps: AppDeps = {
   jobs,
@@ -99,7 +102,7 @@ const server = Bun.serve<SocketData>({
 });
 
 console.log(
-  `Aira cloud agent listening on http://localhost:${server.port} (console /, ws /v1/ws, collect-error, scheduler, watchers)${
+  `Aira cloud agent listening on http://localhost:${server.port} (console /, ws /v1/ws, collect-error, scheduler, watchers, anime)${
     config.cloudToken ? "" : " — CLOUD_TOKEN unset, auth disabled"
   }`,
 );

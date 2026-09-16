@@ -34,6 +34,12 @@ import {
   scheduleTaskTool,
 } from "./schedule.tools";
 import {
+  createAnimeTrackerTool,
+  deleteAnimeTrackerTool,
+  listAnimeTrackersTool,
+  updateAnimeTrackerTool,
+} from "./anime.tools";
+import {
   createWatcherTool,
   listWatchersTool,
   updateWatcherTool,
@@ -55,6 +61,10 @@ export const tools = {
   create_watcher: createWatcherTool,
   list_watchers: listWatchersTool,
   update_watcher: updateWatcherTool,
+  create_anime_tracker: createAnimeTrackerTool,
+  list_anime_trackers: listAnimeTrackersTool,
+  update_anime_tracker: updateAnimeTrackerTool,
+  delete_anime_tracker: deleteAnimeTrackerTool,
   gmail_status: gmailStatusTool,
   gmail_list_messages: gmailListMessagesTool,
   gmail_get_message: gmailGetMessageTool,

@@ -21,6 +21,7 @@ export const CloudConfig = z.object({
   cloudToken: z.string(),
   schedulerDbPath: z.string(),
   watchersDbPath: z.string(),
+  animeDbPath: z.string(),
   notifyDbPath: z.string(),
   resendApiKey: z.string(),
   resendFrom: z.string(),
