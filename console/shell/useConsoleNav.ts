@@ -5,9 +5,11 @@ import {
   openPanel,
   selectInPanel,
   setLogFilter,
+  setWatchersTab,
   type ConsoleNav,
   type LogFilter,
   type PanelId,
+  type WatchersTab,
 } from "./nav";
 
 type NavAction =
@@ -15,7 +17,8 @@ type NavAction =
   | { type: "close" }
   | { type: "select"; id: string | null }
   | { type: "filter"; filter: LogFilter }
-  | { type: "draft" };
+  | { type: "draft" }
+  | { type: "watchers-tab"; tab: WatchersTab };
 
 function reduceNav(nav: ConsoleNav, action: NavAction): ConsoleNav {
   switch (action.type) {
@@ -29,6 +32,8 @@ function reduceNav(nav: ConsoleNav, action: NavAction): ConsoleNav {
       return setLogFilter(nav, action.filter);
     case "draft":
       return beginWatcherDraft(nav);
+    case "watchers-tab":
+      return setWatchersTab(nav, action.tab);
   }
 }
 
@@ -50,5 +55,9 @@ export function useConsoleNav() {
     select: useCallback((id: string | null) => dispatch({ type: "select", id }), []),
     setFilter: useCallback((filter: LogFilter) => dispatch({ type: "filter", filter }), []),
     startDraft: useCallback(() => dispatch({ type: "draft" }), []),
+    setWatchersTab: useCallback(
+      (tab: WatchersTab) => dispatch({ type: "watchers-tab", tab }),
+      [],
+    ),
   };
 }

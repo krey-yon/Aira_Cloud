@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { parseWatcher, type WatcherView } from "../../api/parse";
 import { formatRelativeTime } from "../../lib/relative-time";
-import type { ConsoleNav } from "../../shell/nav";
+import type { ConsoleNav, WatchersTab } from "../../shell/nav";
 import { Sheet } from "../../shell/Sheet";
+import { AnimeTrackersPanel } from "./AnimeTrackersPanel";
 import { useWatchers } from "./useWatchers";
 
 type Props = {
@@ -11,6 +12,7 @@ type Props = {
   onClose: () => void;
   onSelect: (id: string | null) => void;
   onDraft: () => void;
+  onTab: (tab: WatchersTab) => void;
 };
 
 type QueueEvent = {
@@ -43,8 +45,8 @@ function statusLine(watcher: WatcherView) {
   return "Waiting for first check…";
 }
 
-export function WatchersSheet({ nav, onClose, onSelect, onDraft }: Props) {
-  const state = useWatchers(true);
+export function WatchersSheet({ nav, onClose, onSelect, onDraft, onTab }: Props) {
+  const state = useWatchers(nav.tab === "poll");
   const [title, setTitle] = useState("");
   const [resourceUrl, setResourceUrl] = useState("");
   const [conditionPath, setConditionPath] = useState("active");
@@ -59,6 +61,7 @@ export function WatchersSheet({ nav, onClose, onSelect, onDraft }: Props) {
   const selected = watchers.find((w) => w.id === nav.selectedId);
 
   useEffect(() => {
+    if (nav.tab !== "poll") return;
     let cancelled = false;
     const tick = async () => {
       try {
@@ -79,7 +82,7 @@ export function WatchersSheet({ nav, onClose, onSelect, onDraft }: Props) {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, []);
+  }, [nav.tab]);
 
   async function create() {
     setBusy(true);
@@ -140,179 +143,231 @@ export function WatchersSheet({ nav, onClose, onSelect, onDraft }: Props) {
 
   return (
     <Sheet title="Watchers" onClose={onClose}>
-      <div className="status-line">{presence}</div>
+      <div className="segment-tabs" role="tablist" aria-label="Watcher kind">
+        <button
+          type="button"
+          role="tab"
+          className={`segment-tab${nav.tab === "poll" ? " is-active" : ""}`}
+          aria-selected={nav.tab === "poll"}
+          onClick={() => onTab("poll")}
+        >
+          URL watchers
+        </button>
+        <button
+          type="button"
+          role="tab"
+          className={`segment-tab${nav.tab === "anime" ? " is-active" : ""}`}
+          aria-selected={nav.tab === "anime"}
+          onClick={() => onTab("anime")}
+        >
+          Anime
+        </button>
+      </div>
 
-      {!nav.draft && !selected && (
-        <div className="form-actions" style={{ marginBottom: "0.75rem" }}>
-          <button type="button" className="btn btn-primary" onClick={onDraft}>
-            New watcher
-          </button>
-        </div>
-      )}
+      {nav.tab === "anime" ? (
+        <AnimeTrackersPanel
+          selectedId={nav.selectedId}
+          draft={nav.draft}
+          onSelect={onSelect}
+          onDraft={onDraft}
+        />
+      ) : (
+        <>
+          <div className="status-line">{presence}</div>
 
-      {nav.draft && (
-        <div className="form">
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" />
-          <input
-            value={resourceUrl}
-            onChange={(e) => setResourceUrl(e.target.value)}
-            placeholder="GET URL (JSON)"
-          />
-          <input
-            value={conditionPath}
-            onChange={(e) => setConditionPath(e.target.value)}
-            placeholder="JSON path (e.g. active or data.status)"
-          />
-          <div className="form-actions" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <select value={conditionOp} onChange={(e) => setConditionOp(e.target.value)}>
-              <option value="truthy">truthy</option>
-              <option value="falsy">falsy</option>
-              <option value="eq">eq</option>
-              <option value="neq">neq</option>
-              <option value="contains">contains</option>
-              <option value="gt">gt</option>
-              <option value="lt">lt</option>
-            </select>
-            <input
-              value={conditionValue}
-              onChange={(e) => setConditionValue(e.target.value)}
-              placeholder="Value (for eq/…)"
-            />
-          </div>
-          <input
-            value={intervalMinutes}
-            onChange={(e) => setIntervalMinutes(e.target.value)}
-            placeholder="Check every N minutes"
-          />
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Optional note for the alert body"
-          />
-          <div className="form-actions">
-            <button type="button" className="btn" onClick={() => onSelect(null)} disabled={busy}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={busy || !title.trim() || !resourceUrl.trim() || !conditionPath.trim()}
-              onClick={() => void create()}
-            >
-              Save watcher
-            </button>
-          </div>
-        </div>
-      )}
-
-      {state.status === "loading" && <div className="status-line">Loading…</div>}
-      {state.status === "error" && <div className="status-line">Error: {state.message}</div>}
-
-      {selected && !nav.draft ? (
-        <div className="list">
-          <button type="button" className="btn" onClick={() => onSelect(null)}>
-            ← Back to list
-          </button>
-          <div className="row is-selected">
-            <div className="row-title">
-              <span>{selected.title}</span>
-              <span className={`badge is-${selected.status}`}>{selected.status}</span>
-            </div>
-            <div className="row-body">{selected.resourceUrl || selected.prompt}</div>
-            <div className="row is-selected" style={{ marginTop: 8 }}>
-              <div className="row-title">
-                <span>Last status</span>
-              </div>
-              <div className="row-body">{statusLine(selected)}</div>
-              <div className="row-meta">
-                {[
-                  `checked ${formatChecked(selected.lastCheckedAt)}`,
-                  selected.nextCheckAt
-                    ? `next ${formatChecked(selected.nextCheckAt)}`
-                    : null,
-                  formatInterval(selected.intervalMinutes),
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </div>
-            </div>
-            <div className="row-meta">
-              {[
-                selected.conditionsJson && selected.conditionsJson !== "[]"
-                  ? selected.conditionsJson
-                  : selected.conditionPath &&
-                    `${selected.conditionPath} ${selected.conditionOp || ""}${
-                      selected.conditionValue ? ` ${selected.conditionValue}` : ""
-                    }`,
-                selected.lastNudge,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </div>
-            <div className="row-actions">
-              {selected.status === "active" ? (
-                <button type="button" className="btn" disabled={busy} onClick={() => void setStatus(selected.id, "paused")}>
-                  Pause
-                </button>
-              ) : (
-                <button type="button" className="btn" disabled={busy} onClick={() => void setStatus(selected.id, "active")}>
-                  Resume / re-arm
-                </button>
-              )}
-              <button type="button" className="btn btn-danger" disabled={busy} onClick={() => void remove(selected.id)}>
-                Delete
+          {!nav.draft && !selected && (
+            <div className="form-actions watchers-panel-actions">
+              <button type="button" className="btn btn-primary" onClick={onDraft}>
+                New watcher
               </button>
             </div>
-          </div>
-        </div>
-      ) : !nav.draft && watchers.length === 0 && state.status === "ready" ? (
-        <div className="empty">No watchers yet. Add a GET URL + condition.</div>
-      ) : !nav.draft ? (
-        <div className="list">
-          {watchers.map((watcher: WatcherView) => (
-            <button key={watcher.id} type="button" className="row" onClick={() => onSelect(watcher.id)}>
-              <div className="row-title">
-                <span>{watcher.title}</span>
-                <span className={`badge is-${watcher.status}`}>{watcher.status}</span>
-              </div>
-              <div className="row-body">{statusLine(watcher)}</div>
-              <div className="row-meta">
-                {[
-                  `checked ${formatChecked(watcher.lastCheckedAt)}`,
-                  formatInterval(watcher.intervalMinutes),
-                  (watcher.resourceUrl || watcher.prompt || "").slice(0, 80),
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </div>
-            </button>
-          ))}
-        </div>
-      ) : null}
+          )}
 
-      {!nav.draft && (
-        <div className="list" style={{ marginTop: "1rem" }}>
-          <div className="row-title" style={{ padding: "0 0 8px" }}>
-            <span>Notification queue</span>
-          </div>
-          {queue.length === 0 ? (
-            <div className="empty">No queued alerts yet.</div>
-          ) : (
-            queue.map((event) => (
-              <div key={event.id} className="row">
+          {nav.draft && (
+            <div className="form">
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" />
+              <input
+                value={resourceUrl}
+                onChange={(e) => setResourceUrl(e.target.value)}
+                placeholder="GET URL (JSON)"
+              />
+              <input
+                value={conditionPath}
+                onChange={(e) => setConditionPath(e.target.value)}
+                placeholder="JSON path (e.g. active or data.status)"
+              />
+              <div className="form-split">
+                <select value={conditionOp} onChange={(e) => setConditionOp(e.target.value)}>
+                  <option value="truthy">truthy</option>
+                  <option value="falsy">falsy</option>
+                  <option value="eq">eq</option>
+                  <option value="neq">neq</option>
+                  <option value="contains">contains</option>
+                  <option value="gt">gt</option>
+                  <option value="lt">lt</option>
+                </select>
+                <input
+                  value={conditionValue}
+                  onChange={(e) => setConditionValue(e.target.value)}
+                  placeholder="Value (for eq/…)"
+                />
+              </div>
+              <input
+                value={intervalMinutes}
+                onChange={(e) => setIntervalMinutes(e.target.value)}
+                placeholder="Check every N minutes"
+              />
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="Optional note for the alert body"
+              />
+              <div className="form-actions">
+                <button type="button" className="btn" onClick={() => onSelect(null)} disabled={busy}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={busy || !title.trim() || !resourceUrl.trim() || !conditionPath.trim()}
+                  onClick={() => void create()}
+                >
+                  Save watcher
+                </button>
+              </div>
+            </div>
+          )}
+
+          {state.status === "loading" && <div className="status-line">Loading…</div>}
+          {state.status === "error" && <div className="status-line">Error: {state.message}</div>}
+
+          {selected && !nav.draft ? (
+            <div className="list">
+              <button type="button" className="btn" onClick={() => onSelect(null)}>
+                ← Back to list
+              </button>
+              <div className="row is-selected">
                 <div className="row-title">
-                  <span>{event.title}</span>
-                  <span className={`badge is-${event.status}`}>{event.status}</span>
+                  <span>{selected.title}</span>
+                  <span className={`badge is-${selected.status}`}>{selected.status}</span>
+                </div>
+                <div className="row-body">{selected.resourceUrl || selected.prompt}</div>
+                <div className="row is-selected watcher-status-card">
+                  <div className="row-title">
+                    <span>Last status</span>
+                  </div>
+                  <div className="row-body">{statusLine(selected)}</div>
+                  <div className="row-meta">
+                    {[
+                      `checked ${formatChecked(selected.lastCheckedAt)}`,
+                      selected.nextCheckAt
+                        ? `next ${formatChecked(selected.nextCheckAt)}`
+                        : null,
+                      formatInterval(selected.intervalMinutes),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
                 </div>
                 <div className="row-meta">
-                  {formatRelativeTime(event.createdAt)} · email {event.emailSent ? "✓" : "—"} · widget{" "}
-                  {event.widgetSent ? "✓" : "—"}
+                  {[
+                    selected.conditionsJson && selected.conditionsJson !== "[]"
+                      ? selected.conditionsJson
+                      : selected.conditionPath &&
+                        `${selected.conditionPath} ${selected.conditionOp || ""}${
+                          selected.conditionValue ? ` ${selected.conditionValue}` : ""
+                        }`,
+                    selected.lastNudge,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </div>
-                <div className="row-body">{event.body.slice(0, 160)}</div>
+                <div className="row-actions">
+                  {selected.status === "active" ? (
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={busy}
+                      onClick={() => void setStatus(selected.id, "paused")}
+                    >
+                      Pause
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={busy}
+                      onClick={() => void setStatus(selected.id, "active")}
+                    >
+                      Resume / re-arm
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    disabled={busy}
+                    onClick={() => void remove(selected.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
-            ))
+            </div>
+          ) : !nav.draft && watchers.length === 0 && state.status === "ready" ? (
+            <div className="empty">No watchers yet. Add a GET URL + condition.</div>
+          ) : !nav.draft ? (
+            <div className="list">
+              {watchers.map((watcher: WatcherView) => (
+                <button
+                  key={watcher.id}
+                  type="button"
+                  className="row"
+                  onClick={() => onSelect(watcher.id)}
+                >
+                  <div className="row-title">
+                    <span>{watcher.title}</span>
+                    <span className={`badge is-${watcher.status}`}>{watcher.status}</span>
+                  </div>
+                  <div className="row-body">{statusLine(watcher)}</div>
+                  <div className="row-meta">
+                    {[
+                      `checked ${formatChecked(watcher.lastCheckedAt)}`,
+                      formatInterval(watcher.intervalMinutes),
+                      (watcher.resourceUrl || watcher.prompt || "").slice(0, 80),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {!nav.draft && (
+            <div className="list notify-queue">
+              <div className="row-title notify-queue-title">
+                <span>Notification queue</span>
+              </div>
+              {queue.length === 0 ? (
+                <div className="empty">No queued alerts yet.</div>
+              ) : (
+                queue.map((event) => (
+                  <div key={event.id} className="row">
+                    <div className="row-title">
+                      <span>{event.title}</span>
+                      <span className={`badge is-${event.status}`}>{event.status}</span>
+                    </div>
+                    <div className="row-meta">
+                      {formatRelativeTime(event.createdAt)} · email {event.emailSent ? "✓" : "—"} ·
+                      widget {event.widgetSent ? "✓" : "—"}
+                    </div>
+                    <div className="row-body">{event.body.slice(0, 160)}</div>
+                  </div>
+                ))
+              )}
+            </div>
           )}
-        </div>
+        </>
       )}
     </Sheet>
   );
