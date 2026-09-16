@@ -167,3 +167,47 @@ export function parseWatcherList(raw: unknown): WatcherView[] {
   if (!Array.isArray(watchers)) return [];
   return watchers.map(parseWatcher).filter((w): w is WatcherView => w != null);
 }
+
+export type AnimeTrackerView = {
+  id: string;
+  title: string;
+  imageUrl: string;
+  kind: "anime" | "manhwa";
+  episode: number;
+  status: string;
+  nextReleaseAt: string;
+  lastNotifiedAt?: string | null;
+  lastError?: string | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export function parseAnimeTracker(raw: unknown): AnimeTrackerView | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.id !== "string" || typeof o.title !== "string") return null;
+  if (typeof o.imageUrl !== "string" || typeof o.nextReleaseAt !== "string") return null;
+  const kind = o.kind === "manhwa" ? "manhwa" : "anime";
+  return {
+    id: o.id,
+    title: o.title,
+    imageUrl: o.imageUrl,
+    kind,
+    episode: typeof o.episode === "number" ? o.episode : 1,
+    status: typeof o.status === "string" ? o.status : "active",
+    nextReleaseAt: o.nextReleaseAt,
+    lastNotifiedAt: typeof o.lastNotifiedAt === "string" ? o.lastNotifiedAt : null,
+    lastError: typeof o.lastError === "string" ? o.lastError : null,
+    createdAt: typeof o.createdAt === "number" ? o.createdAt : 0,
+    updatedAt: typeof o.updatedAt === "number" ? o.updatedAt : 0,
+  };
+}
+
+export function parseAnimeTrackerList(raw: unknown): AnimeTrackerView[] {
+  if (!raw || typeof raw !== "object") return [];
+  const trackers = (raw as { trackers?: unknown }).trackers;
+  if (!Array.isArray(trackers)) return [];
+  return trackers
+    .map(parseAnimeTracker)
+    .filter((t): t is AnimeTrackerView => t != null);
+}

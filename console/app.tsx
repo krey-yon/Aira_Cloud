@@ -18,7 +18,7 @@ type Gate = "checking" | "need-token" | "ready";
 function App() {
   const [gate, setGate] = useState<Gate>(() => (getToken() ? "checking" : "need-token"));
   const [authMessage, setAuthMessage] = useState<string | undefined>();
-  const { nav, open, close, select, setFilter, startDraft } = useConsoleNav();
+  const { nav, open, close, select, setFilter, startDraft, setWatchersTab } = useConsoleNav();
   const { theme, toggleTheme } = useTheme();
 
   const verify = useCallback(async () => {
@@ -84,6 +84,7 @@ function App() {
       onSelect={select}
       onFilter={setFilter}
       onDraft={startDraft}
+      onWatchersTab={setWatchersTab}
       onToggleTheme={toggleTheme}
     />
   );

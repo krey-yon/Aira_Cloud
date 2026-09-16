@@ -26,6 +26,13 @@ import {
 import { getSkillStore } from "../skills";
 import { listToolNames } from "../tools";
 import type { WatcherInput, WatcherStatus } from "../watchers/watcher.store";
+import {
+  getAnimeStore,
+  type AnimeKind,
+  type AnimeTracker,
+  type AnimeTrackerStatus,
+} from "../anime/anime.store";
+import { parseReleaseAt } from "../anime/anime.schedule";
 import { canvasPage } from "../canvas/canvas-page";
 import type { AppDeps } from "./deps";
 import { startJob } from "./ws";
@@ -40,6 +47,46 @@ type SkillWriteBody = {
   maxSteps?: number;
   edges?: Array<{ to: string; kind: "routes-to" | "compose-with" }>;
 };
+
+type AnimeCreateBody = {
+  title?: string;
+  imageUrl?: string;
+  releaseAt?: string;
+  kind?: AnimeKind;
+  episode?: number;
+};
+
+type AnimePatchBody = {
+  title?: string;
+  imageUrl?: string;
+  releaseAt?: string;
+  kind?: AnimeKind;
+  episode?: number;
+  status?: AnimeTrackerStatus;
+};
+
+function publicAnimeTracker(tracker: AnimeTracker) {
+  return {
+    id: tracker.id,
+    title: tracker.title,
+    imageUrl: tracker.imageUrl,
+    kind: tracker.kind,
+    episode: tracker.episode,
+    recurrenceDays: tracker.recurrenceDays,
+    status: tracker.status,
+    nextReleaseAt: new Date(tracker.nextReleaseAt).toISOString(),
+    lastNotifiedAt: tracker.lastNotifiedAt
+      ? new Date(tracker.lastNotifiedAt).toISOString()
+      : null,
+    lastError: tracker.lastError ?? null,
+    lastAttemptAt: tracker.lastAttemptAt
+      ? new Date(tracker.lastAttemptAt).toISOString()
+      : null,
+    clientId: tracker.clientId,
+    createdAt: tracker.createdAt,
+    updatedAt: tracker.updatedAt,
+  };
+}
 
 function slugifySkillId(name: string): string {
   return name
@@ -653,6 +700,96 @@ export function createRoutes(deps: AppDeps) {
         const denied = requireAuth(req); if (denied) return denied;
         const id = (req as Request & { params: { id: string } }).params.id;
         if (!watchers.delete(id)) return json({ error: "Not found" }, 404);
+        return json({ ok: true });
+      },
+    },
+    "/v1/anime-trackers": {
+      GET: (req: Request) => {
+        const denied = requireAuth(req); if (denied) return denied;
+        const url = new URL(req.url);
+        const status = url.searchParams.get("status") as AnimeTrackerStatus | null;
+        const limit = Number(url.searchParams.get("limit") ?? 50);
+        const anime = getAnimeStore();
+        return json({
+          trackers: anime
+            .list({
+              status: status ?? undefined,
+              limit: Number.isFinite(limit) ? limit : 50,
+            })
+            .map(publicAnimeTracker),
+        });
+      },
+      POST: async (req: Request) => {
+        const denied = requireAuth(req); if (denied) return denied;
+        const parsed = await readJson<AnimeCreateBody>(req);
+        if (!parsed.ok) return parsed.response;
+        const body = parsed.body;
+        try {
+          const tracker = getAnimeStore().create({
+            title: body.title ?? "",
+            imageUrl: body.imageUrl ?? "",
+            releaseAt: body.releaseAt ?? "",
+            kind: body.kind,
+            episode: body.episode,
+          });
+          logs.append({
+            kind: "server",
+            level: "info",
+            title: "anime:create",
+            body: tracker.title,
+            clientId: tracker.clientId,
+            source: "anime",
+          });
+          return json({ tracker: publicAnimeTracker(tracker) }, 201);
+        } catch (err) {
+          return json(
+            { error: err instanceof Error ? err.message : String(err) },
+            400,
+          );
+        }
+      },
+    },
+    "/v1/anime-trackers/:id": {
+      GET: (req: Request) => {
+        const denied = requireAuth(req); if (denied) return denied;
+        const id = (req as Request & { params: { id: string } }).params.id;
+        const tracker = getAnimeStore().get(id);
+        if (!tracker) return json({ error: "Not found" }, 404);
+        return json({ tracker: publicAnimeTracker(tracker) });
+      },
+      PATCH: async (req: Request) => {
+        const denied = requireAuth(req); if (denied) return denied;
+        const id = (req as Request & { params: { id: string } }).params.id;
+        const parsed = await readJson<AnimePatchBody>(req);
+        if (!parsed.ok) return parsed.response;
+        const body = parsed.body;
+        try {
+          const tracker = getAnimeStore().update(id, {
+            title: body.title,
+            imageUrl: body.imageUrl,
+            kind: body.kind,
+            episode: body.episode,
+            status: body.status,
+            ...(body.releaseAt
+              ? { nextReleaseAt: parseReleaseAt(body.releaseAt) }
+              : {}),
+            ...(body.status === "active"
+              ? { lastError: undefined, lastAttemptAt: undefined }
+              : {}),
+          });
+          if (!tracker) return json({ error: "Not found" }, 404);
+          return json({ tracker: publicAnimeTracker(tracker) });
+        } catch (err) {
+          return json(
+            { error: err instanceof Error ? err.message : String(err) },
+            400,
+          );
+        }
+      },
+      DELETE: (req: Request) => {
+        const denied = requireAuth(req); if (denied) return denied;
+        const id = (req as Request & { params: { id: string } }).params.id;
+        if (!getAnimeStore().delete(id)) return json({ error: "Not found" }, 404);
         return json({ ok: true });
       },
     },

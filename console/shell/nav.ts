@@ -2,11 +2,13 @@ export type PanelId = "logs" | "schedule" | "watchers" | "errors" | "mail" | "sk
 
 export type LogFilter = "all" | "jobs" | "tools" | "errors" | "server";
 
+export type WatchersTab = "poll" | "anime";
+
 export type ConsoleNav =
   | { panel: "idle" }
   | { panel: "logs"; filter: LogFilter; selectedId: string | null }
   | { panel: "schedule"; selectedId: string | null }
-  | { panel: "watchers"; selectedId: string | null; draft: boolean }
+  | { panel: "watchers"; tab: WatchersTab; selectedId: string | null; draft: boolean }
   | { panel: "errors"; selectedId: string | null }
   | { panel: "mail" }
   | { panel: "kv" }
@@ -25,7 +27,7 @@ export function openPanel(current: ConsoleNav, panel: PanelId): ConsoleNav {
       return { panel: "schedule", selectedId: null };
     }
     if (current.panel === "watchers" && (current.selectedId || current.draft)) {
-      return { panel: "watchers", selectedId: null, draft: false };
+      return { panel: "watchers", tab: current.tab, selectedId: null, draft: false };
     }
     if (current.panel === "errors" && current.selectedId) {
       return { panel: "errors", selectedId: null };
@@ -41,7 +43,7 @@ export function openPanel(current: ConsoleNav, panel: PanelId): ConsoleNav {
   if (panel === "mail") return { panel: "mail" };
   if (panel === "kv") return { panel: "kv" };
   if (panel === "skills") return { panel: "skills", selectedId: null };
-  return { panel: "watchers", selectedId: null, draft: false };
+  return { panel: "watchers", tab: "poll", selectedId: null, draft: false };
 }
 
 export function selectInPanel(current: ConsoleNav, id: string | null): ConsoleNav {
@@ -53,11 +55,20 @@ export function selectInPanel(current: ConsoleNav, id: string | null): ConsoleNa
   return { ...current, selectedId: id, draft: false };
 }
 
+export function setWatchersTab(current: ConsoleNav, tab: WatchersTab): ConsoleNav {
+  if (current.panel !== "watchers") {
+    return { panel: "watchers", tab, selectedId: null, draft: false };
+  }
+  if (current.tab === tab) return current;
+  return { panel: "watchers", tab, selectedId: null, draft: false };
+}
+
 export function setLogFilter(current: ConsoleNav, filter: LogFilter): ConsoleNav {
   if (current.panel !== "logs") return current;
   return { ...current, filter, selectedId: null };
 }
 
 export function beginWatcherDraft(current: ConsoleNav): ConsoleNav {
-  return { panel: "watchers", selectedId: null, draft: true };
+  const tab = current.panel === "watchers" ? current.tab : "poll";
+  return { panel: "watchers", tab, selectedId: null, draft: true };
 }

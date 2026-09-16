@@ -5,6 +5,7 @@ import {
   openPanel,
   selectInPanel,
   setLogFilter,
+  setWatchersTab,
 } from "./nav";
 
 test("openPanel toggles idle ↔ panel and clears selection on second tap", () => {
@@ -29,11 +30,36 @@ test("setLogFilter, errors panel, and watcher draft stay on typed union", () => 
   expect(selectInPanel(errors, "err_1")).toEqual({ panel: "errors", selectedId: "err_1" });
 
   const draft = beginWatcherDraft(idle());
-  expect(draft).toEqual({ panel: "watchers", selectedId: null, draft: true });
+  expect(draft).toEqual({ panel: "watchers", tab: "poll", selectedId: null, draft: true });
   expect(selectInPanel(draft, null)).toEqual({
     panel: "watchers",
+    tab: "poll",
     selectedId: null,
     draft: false,
+  });
+});
+
+test("watchers tab switches clear selection and draft", () => {
+  const watchers = openPanel(idle(), "watchers");
+  expect(watchers).toEqual({
+    panel: "watchers",
+    tab: "poll",
+    selectedId: null,
+    draft: false,
+  });
+  const anime = setWatchersTab(selectInPanel(watchers, "w_1"), "anime");
+  expect(anime).toEqual({
+    panel: "watchers",
+    tab: "anime",
+    selectedId: null,
+    draft: false,
+  });
+  const draft = beginWatcherDraft(anime);
+  expect(draft).toEqual({
+    panel: "watchers",
+    tab: "anime",
+    selectedId: null,
+    draft: true,
   });
 });
 

@@ -1,4 +1,4 @@
-import type { ConsoleNav, LogFilter, PanelId } from "./nav";
+import type { ConsoleNav, LogFilter, PanelId, WatchersTab } from "./nav";
 import { useGmail } from "./useGmail";
 import { BrandPill } from "./BrandPill";
 import { Dock } from "./Dock";
@@ -19,6 +19,7 @@ type Props = {
   onSelect: (id: string | null) => void;
   onFilter: (filter: LogFilter) => void;
   onDraft: () => void;
+  onWatchersTab: (tab: WatchersTab) => void;
   onToggleTheme: () => void;
 };
 
@@ -30,6 +31,9 @@ function subtitleFor(nav: ConsoleNav, gmailEmail: string | null): string {
   if (nav.panel === "skills") return "skills";
   if (nav.panel === "mail") return gmailEmail ? gmailEmail : "mail";
   if (nav.panel === "kv") return "params";
+  if (nav.tab === "anime") {
+    return nav.draft ? "watchers · anime · draft" : "watchers · anime";
+  }
   return nav.draft ? "watchers · draft" : "watchers";
 }
 
@@ -41,6 +45,7 @@ export function ConsoleStage({
   onSelect,
   onFilter,
   onDraft,
+  onWatchersTab,
   onToggleTheme,
 }: Props) {
   const active = nav.panel === "idle" ? null : nav.panel;
@@ -67,7 +72,13 @@ export function ConsoleStage({
         <ScheduleSheet nav={nav} onClose={onClose} onSelect={onSelect} />
       )}
       {nav.panel === "watchers" && (
-        <WatchersSheet nav={nav} onClose={onClose} onSelect={onSelect} onDraft={onDraft} />
+        <WatchersSheet
+          nav={nav}
+          onClose={onClose}
+          onSelect={onSelect}
+          onDraft={onDraft}
+          onTab={onWatchersTab}
+        />
       )}
       {nav.panel === "errors" && (
         <ErrorsSheet nav={nav} onClose={onClose} onSelect={onSelect} />
