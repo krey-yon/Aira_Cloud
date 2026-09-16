@@ -103,13 +103,35 @@ export class SkillStore {
     `);
   }
 
+  private mergeBundledTools(
+    existing: SkillRecord,
+    pack: Omit<SkillRecord, "updatedAt">,
+  ): void {
+    const missing = pack.tools.filter((tool) => !existing.tools.includes(tool));
+    if (!missing.length) return;
+    const tags = [...existing.tags];
+    for (const tag of pack.tags) {
+      if (!tags.includes(tag)) tags.push(tag);
+    }
+    this.upsert({
+      id: existing.id,
+      name: existing.name,
+      description: pack.description,
+      tags,
+      instructions: pack.instructions,
+      tools: [...existing.tools, ...missing],
+      maxSteps: existing.maxSteps ?? pack.maxSteps,
+      edges: existing.edges.length ? existing.edges : pack.edges,
+    });
+  }
+
   async ensureSeeded(): Promise<void> {
     if (this.seeded) return;
+    const packs = await loadBundledSkillSeeds();
     const count = (
       this.db.query(`SELECT COUNT(*) AS n FROM skills`).get() as { n: number }
     ).n;
     if (count === 0) {
-      const packs = await loadBundledSkillSeeds();
       const insert = this.db.prepare(`
         INSERT INTO skills (
           id, name, description, tags_json, instructions, tools_json, max_steps, edges_json, updated_at
@@ -132,6 +154,24 @@ export class SkillStore {
         }
       });
       tx(packs);
+    } else {
+      for (const pack of packs) {
+        const existing = this.get(pack.id);
+        if (!existing) {
+          this.upsert({
+            id: pack.id,
+            name: pack.name,
+            description: pack.description,
+            tags: pack.tags,
+            instructions: pack.instructions,
+            tools: pack.tools,
+            maxSteps: pack.maxSteps,
+            edges: pack.edges,
+          });
+          continue;
+        }
+        this.mergeBundledTools(existing, pack);
+      }
     }
     this.seeded = true;
   }

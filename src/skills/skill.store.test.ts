@@ -32,6 +32,30 @@ describe("SkillStore", () => {
     expect(store.listMeta().length).toBe(6);
   });
 
+  test("ensureSeeded merges missing bundled tools into an existing skill row", async () => {
+    const store = new SkillStore(testDb);
+    store.upsert({
+      id: "general-assistant",
+      name: "General Assistant",
+      description: "stale",
+      tags: ["general"],
+      instructions: "old body",
+      tools: ["ask_user", "websearch", "create_watcher"],
+      maxSteps: 8,
+      edges: [],
+    });
+    resetSkillStoreForTests();
+    const again = new SkillStore(testDb);
+    await again.ensureSeeded();
+    const tools = again.get("general-assistant")?.tools ?? [];
+    expect(tools).toContain("create_anime_tracker");
+    expect(tools).toContain("list_anime_trackers");
+    expect(tools).toContain("update_anime_tracker");
+    expect(tools).toContain("delete_anime_tracker");
+    expect(tools).toContain("create_watcher");
+    expect(again.get("general-assistant")?.instructions).toContain("anime");
+  });
+
   test("updates body and loads three bodies by id", async () => {
     const store = new SkillStore(testDb);
     await store.ensureSeeded();

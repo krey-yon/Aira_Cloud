@@ -63,6 +63,10 @@ export const config = {
   watchersDbPath:
     process.env.WATCHERS_DB ??
     `${process.cwd()}/data/watchers.sqlite`,
+  /** SQLite path for weekly anime/manhwa release trackers. */
+  animeDbPath:
+    process.env.ANIME_DB ??
+    `${process.cwd()}/data/anime.sqlite`,
   /** SQLite path for watcher notification queue. */
   notifyDbPath:
     process.env.NOTIFY_DB ??

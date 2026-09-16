@@ -47,6 +47,10 @@ function toolTitle(name: string): string {
     schedule_task: "Scheduling a task",
     list_scheduled_tasks: "Listing scheduled tasks",
     cancel_scheduled_task: "Cancelling a scheduled task",
+    create_anime_tracker: "Creating an anime tracker",
+    list_anime_trackers: "Listing anime trackers",
+    update_anime_tracker: "Updating an anime tracker",
+    delete_anime_tracker: "Deleting an anime tracker",
   };
   return map[name] ?? `Running ${name}`;
 }

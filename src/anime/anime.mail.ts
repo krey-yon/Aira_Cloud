@@ -1,24 +1,28 @@
 import { config, publicOrigin } from "../config";
-import { buildWatcherEmailHtml } from "../mail/templates";
+import { buildAnimeEmailHtml } from "../mail/templates";
+import { unitLabel } from "./anime.schedule";
+import type { AnimeTracker } from "./anime.store";
 
-export { buildWatcherEmailHtml };
+export { buildAnimeEmailHtml };
 
-export async function sendWatcherEmail(input: {
-  subject: string;
-  title: string;
-  body: string;
-  resourceUrl?: string;
-  observed?: string;
-}): Promise<{ ok: true; id?: string } | { ok: false; error: string }> {
+export async function sendAnimeEmail(
+  tracker: AnimeTracker,
+): Promise<{ ok: true; id?: string } | { ok: false; error: string }> {
   const apiKey = config.resendApiKey.trim();
   if (!apiKey) return { ok: false, error: "RESEND API key is not configured on the cloud server." };
 
   const to = config.notifyEmail.trim();
   const from = config.resendFrom.trim() || "Aira <aira@kreyon.in>";
-  const html = buildWatcherEmailHtml({
-    ...input,
+  const unit = unitLabel(tracker.kind);
+  const subject = `Aira · ${tracker.title} · ${unit} ${tracker.episode}`;
+  const html = buildAnimeEmailHtml({
+    title: tracker.title,
+    imageUrl: tracker.imageUrl,
+    kind: tracker.kind,
+    episode: tracker.episode,
     consoleUrl: publicOrigin(),
   });
+  const text = `${tracker.title}\n\n${unit} ${tracker.episode} is out.`;
 
   try {
     const response = await fetch("https://api.resend.com/emails", {
@@ -30,14 +34,14 @@ export async function sendWatcherEmail(input: {
       body: JSON.stringify({
         from,
         to: [to],
-        subject: input.subject,
+        subject,
         html,
-        text: `${input.title}\n\n${input.body}${input.resourceUrl ? `\n\n${input.resourceUrl}` : ""}`,
+        text,
       }),
     });
     if (!response.ok) {
-      const text = await response.text().catch(() => "");
-      return { ok: false, error: `Resend ${response.status}: ${text.slice(0, 200)}` };
+      const body = await response.text().catch(() => "");
+      return { ok: false, error: `Resend ${response.status}: ${body.slice(0, 200)}` };
     }
     const json = (await response.json().catch(() => ({}))) as { id?: string };
     return { ok: true, id: json.id };

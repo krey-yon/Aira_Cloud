@@ -10,6 +10,10 @@ const CORE_TOOLS = [
   "create_watcher",
   "list_watchers",
   "update_watcher",
+  "create_anime_tracker",
+  "list_anime_trackers",
+  "update_anime_tracker",
+  "delete_anime_tracker",
 ] as const;
 
 const NOTION_TOOLS = [
@@ -49,15 +53,14 @@ async function readSkillMd(dir: string): Promise<string> {
   return Bun.file(new URL(`./${dir}/SKILL.md`, import.meta.url)).text();
 }
 
-/** Bundled seed packs. Written into SQLite only when the table is empty. */
 export async function loadBundledSkillSeeds(): Promise<Omit<SkillRecord, "updatedAt">[]> {
   return [
     {
       id: "general-assistant",
       name: "General Assistant",
       description:
-        "Default helpful assistant for general questions, scheduling, watchers, and light web research.",
-      tags: ["general", "schedule", "watcher", "default"],
+        "Default helpful assistant for general questions, scheduling, watchers, anime trackers, and light web research.",
+      tags: ["general", "schedule", "watcher", "anime", "default"],
       instructions: await readSkillMd("general-assistant"),
       tools: [...CORE_TOOLS],
       maxSteps: 8,
