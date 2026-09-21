@@ -99,6 +99,10 @@ export const config = {
   skillsDbPath:
     process.env.SKILLS_DB ??
     `${process.cwd()}/data/skills.sqlite`,
+  /** SQLite path for the global string KV store. */
+  storeDbPath:
+    process.env.STORE_DB ??
+    `${process.cwd()}/data/store.sqlite`,
   /**
    * Public origin for canvas links shown in the extension.
    * Override with PUBLIC_BASE_URL for local (e.g. http://localhost:8787).

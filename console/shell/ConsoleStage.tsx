@@ -4,7 +4,7 @@ import { BrandPill } from "./BrandPill";
 import { Dock } from "./Dock";
 import { ErrorsSheet } from "../panels/errors/ErrorsSheet";
 import { HomeOverview } from "../panels/home/HomeOverview";
-import { KvSheet } from "../panels/kv/KvSheet";
+import { StoreSheet } from "../panels/store/StoreSheet";
 import { LogsSheet } from "../panels/logs/LogsSheet";
 import { MailSheet } from "../panels/mail/MailSheet";
 import { ScheduleSheet } from "../panels/schedule/ScheduleSheet";
@@ -30,7 +30,7 @@ function subtitleFor(nav: ConsoleNav, gmailEmail: string | null): string {
   if (nav.panel === "errors") return "errors";
   if (nav.panel === "skills") return "skills";
   if (nav.panel === "mail") return gmailEmail ? gmailEmail : "mail";
-  if (nav.panel === "kv") return "params";
+  if (nav.panel === "store") return "store";
   if (nav.tab === "anime") {
     return nav.draft ? "watchers · anime · draft" : "watchers · anime";
   }
@@ -86,7 +86,7 @@ export function ConsoleStage({
       {nav.panel === "skills" && (
         <SkillsSheet nav={nav} onClose={onClose} onSelect={onSelect} />
       )}
-      {nav.panel === "kv" && <KvSheet onClose={onClose} />}
+      {nav.panel === "store" && <StoreSheet onClose={onClose} />}
 
       <Dock
         active={active}

@@ -130,9 +130,9 @@ export function Dock({
           </svg>
         </IconButton>
         <IconButton
-          label="Parameters"
-          active={active === "kv"}
-          onClick={() => onOpen("kv")}
+          label="Store"
+          active={active === "store"}
+          onClick={() => onOpen("store")}
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
             <path
