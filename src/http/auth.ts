@@ -1,12 +1,14 @@
 import { config } from "../config";
 
+export const CORS_ALLOW_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
+
 export function json(data: unknown, status = 200) {
   return Response.json(data, {
     status,
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "Authorization, Content-Type",
-      "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+      "Access-Control-Allow-Methods": CORS_ALLOW_METHODS,
     },
   });
 }

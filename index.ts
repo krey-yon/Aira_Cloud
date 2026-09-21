@@ -1,5 +1,6 @@
 import { ClientRegistry, type SocketData } from "./src/realtime/client.registry";
 import { config } from "./src/config";
+import { CORS_ALLOW_METHODS } from "./src/http/auth";
 import { getScheduler } from "./src/scheduler";
 import { AgentService } from "./src/agent/agent.service";
 import { ErrorStore } from "./src/observability/error.store";
@@ -93,7 +94,7 @@ const server = Bun.serve<SocketData>({
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Headers": "Authorization, Content-Type",
-          "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+          "Access-Control-Allow-Methods": CORS_ALLOW_METHODS,
         },
       });
     }

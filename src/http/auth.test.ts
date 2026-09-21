@@ -6,6 +6,7 @@ test("json sets CORS headers", () => {
   const res = json({ ok: true }, 201);
   expect(res.status).toBe(201);
   expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  expect(res.headers.get("Access-Control-Allow-Methods") ?? "").toContain("PUT");
 });
 
 test("extractBearer reads Authorization header", () => {

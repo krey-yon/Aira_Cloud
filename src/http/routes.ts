@@ -24,6 +24,7 @@ import {
   type RecentMailCard,
 } from "../mail/mail.preview";
 import { getSkillStore } from "../skills";
+import { getStore } from "../store/kv.store";
 import { listToolNames } from "../tools";
 import type { WatcherInput, WatcherStatus } from "../watchers/watcher.store";
 import {
@@ -831,6 +832,45 @@ export function createRoutes(deps: AppDeps) {
             };
           }),
         });
+      },
+    },
+    "/v1/store": {
+      GET: async (req: Request) => {
+        const denied = requireAuth(req);
+        if (denied) return denied;
+        return json(getStore().dump());
+      },
+      PUT: async (req: Request) => {
+        const denied = requireAuth(req);
+        if (denied) return denied;
+        const parsed = await readJson<unknown>(req);
+        if (!parsed.ok) return parsed.response;
+        const body = parsed.body;
+        if (!body || typeof body !== "object" || Array.isArray(body)) {
+          return json({ error: "key and value must be strings" }, 400);
+        }
+        const rec = body as { key?: unknown; value?: unknown };
+        if (typeof rec.key !== "string" || rec.key === "" || typeof rec.value !== "string") {
+          return json({ error: "key and value must be strings" }, 400);
+        }
+        const entry = getStore().put(rec.key, rec.value);
+        return json({ entry });
+      },
+      DELETE: async (req: Request) => {
+        const denied = requireAuth(req);
+        if (denied) return denied;
+        const parsed = await readJson<unknown>(req);
+        if (!parsed.ok) return parsed.response;
+        const body = parsed.body;
+        if (!body || typeof body !== "object" || Array.isArray(body)) {
+          return json({ error: "key must be a string" }, 400);
+        }
+        const rec = body as { key?: unknown };
+        if (typeof rec.key !== "string") {
+          return json({ error: "key must be a string" }, 400);
+        }
+        getStore().delete(rec.key);
+        return json({ ok: true });
       },
     },
     "/v1/presence": {
