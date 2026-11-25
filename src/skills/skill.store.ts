@@ -103,25 +103,56 @@ export class SkillStore {
     `);
   }
 
-  private mergeBundledTools(
+  private mergeBundledSkill(
     existing: SkillRecord,
     pack: Omit<SkillRecord, "updatedAt">,
   ): void {
-    const missing = pack.tools.filter((tool) => !existing.tools.includes(tool));
-    if (!missing.length) return;
+    const tools = [...existing.tools];
+    for (const tool of pack.tools) {
+      if (!tools.includes(tool)) tools.push(tool);
+    }
+
     const tags = [...existing.tags];
     for (const tag of pack.tags) {
       if (!tags.includes(tag)) tags.push(tag);
     }
+
+    const edgeKey = (edge: SkillEdge) => `${edge.kind}:${edge.to}`;
+    const edges = [...existing.edges];
+    const seen = new Set(edges.map(edgeKey));
+    for (const edge of pack.edges) {
+      const key = edgeKey(edge);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      edges.push(edge);
+    }
+
+    const toolsChanged = tools.length !== existing.tools.length;
+    const tagsChanged = tags.length !== existing.tags.length;
+    const edgesChanged = edges.length !== existing.edges.length;
+    const descriptionChanged = existing.description !== pack.description;
+    const instructionsChanged = existing.instructions !== pack.instructions;
+    const maxStepsChanged = (existing.maxSteps ?? null) !== (pack.maxSteps ?? null);
+    if (
+      !toolsChanged &&
+      !tagsChanged &&
+      !edgesChanged &&
+      !descriptionChanged &&
+      !instructionsChanged &&
+      !maxStepsChanged
+    ) {
+      return;
+    }
+
     this.upsert({
       id: existing.id,
-      name: existing.name,
+      name: pack.name,
       description: pack.description,
       tags,
       instructions: pack.instructions,
-      tools: [...existing.tools, ...missing],
-      maxSteps: existing.maxSteps ?? pack.maxSteps,
-      edges: existing.edges.length ? existing.edges : pack.edges,
+      tools,
+      maxSteps: pack.maxSteps ?? existing.maxSteps,
+      edges,
     });
   }
 
@@ -170,7 +201,7 @@ export class SkillStore {
           });
           continue;
         }
-        this.mergeBundledTools(existing, pack);
+        this.mergeBundledSkill(existing, pack);
       }
     }
     this.seeded = true;

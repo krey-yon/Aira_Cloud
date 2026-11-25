@@ -29,6 +29,14 @@ const NOTION_TOOLS = [
   "notion_create_database",
 ] as const;
 
+const NOTION_PUBLIC_INTEL_TOOLS = [
+  "ask_user",
+  "notion_analyze_public_page",
+  "notion_public_last_updated",
+  "webfetch",
+  "websearch",
+] as const;
+
 const GMAIL_TOOLS = [
   "ask_user",
   "email_verify",
@@ -66,6 +74,7 @@ export async function loadBundledSkillSeeds(): Promise<Omit<SkillRecord, "update
       maxSteps: 8,
       edges: [
         { to: "notion", kind: "routes-to" },
+        { to: "notion-public-intel", kind: "routes-to" },
         { to: "gmail", kind: "routes-to" },
         { to: "websearch", kind: "compose-with" },
       ],
@@ -79,7 +88,24 @@ export async function loadBundledSkillSeeds(): Promise<Omit<SkillRecord, "update
       instructions: await readSkillMd("notion"),
       tools: [...NOTION_TOOLS],
       maxSteps: 12,
-      edges: [{ to: "general-assistant", kind: "compose-with" }],
+      edges: [
+        { to: "general-assistant", kind: "compose-with" },
+        { to: "notion-public-intel", kind: "compose-with" },
+      ],
+    },
+    {
+      id: "notion-public-intel",
+      name: "Notion Public Intel",
+      description:
+        "Analyze publicly discoverable Notion page intel: share posture, metadata, content outline, and last-updated timing.",
+      tags: ["notion", "public", "share", "osint", "intel", "updated"],
+      instructions: await readSkillMd("notion-public-intel"),
+      tools: [...NOTION_PUBLIC_INTEL_TOOLS],
+      maxSteps: 8,
+      edges: [
+        { to: "notion", kind: "compose-with" },
+        { to: "websearch", kind: "compose-with" },
+      ],
     },
     {
       id: "gmail",

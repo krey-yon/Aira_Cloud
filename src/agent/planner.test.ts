@@ -25,7 +25,16 @@ const catalog: SkillMeta[] = [
     tags: ["notion", "notes"],
     tools: ["notion_search"],
     maxSteps: 12,
-    edges: [],
+    edges: [{ to: "notion-public-intel", kind: "compose-with" }],
+  },
+  {
+    id: "notion-public-intel",
+    name: "Notion Public Intel",
+    description: "Analyze publicly discoverable Notion page intel and last-updated timing",
+    tags: ["notion", "public", "share", "osint", "intel", "updated"],
+    tools: ["notion_analyze_public_page", "notion_public_last_updated"],
+    maxSteps: 8,
+    edges: [{ to: "notion", kind: "compose-with" }],
   },
   {
     id: "gmail",
@@ -64,6 +73,16 @@ describe("planSkills", () => {
       catalog,
     });
     expect(plan.skillIds).toContain("notion");
+  });
+
+  test("routes public share and last-updated asks to notion-public-intel", () => {
+    const plan = planSkills({
+      text: "when was this notion page last updated?",
+      pageUrl:
+        "https://actually-parakeet-221.notion.site/Aesthetic-New-Year-Planner-d80756a61955826990990186ae8f9586",
+      catalog,
+    });
+    expect(plan.skillIds[0]).toBe("notion-public-intel");
   });
 
   test("falls back to general-assistant", () => {
