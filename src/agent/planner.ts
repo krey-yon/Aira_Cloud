@@ -81,6 +81,17 @@ function scoreSkill(text: string, meta: SkillMeta, pageUrl?: string, keywords?: 
   if (/\bnotion\b|\bwikipedia\b|\bwiki\b|\bnotes?\b|\bpage\b/.test(hay) && meta.id === "notion") {
     score += 5;
   }
+  if (meta.id === "notion-public-intel") {
+    if (
+      /\bnotion\.site\b|\bshare link\b|\bpublic(ly)?\b|\bosint\b|\blast updated\b|\bupdated ago\b|\bwhat can (?:people|anyone) see\b/.test(
+        hay,
+      )
+    ) {
+      score += 6;
+    } else if (/\bnotion\b/.test(hay)) {
+      score += 2;
+    }
+  }
   if (/\bgmail\b|\bemail\b|\bmail\b|\bdraft\b|\binbox\b/.test(hay) && meta.id === "gmail") {
     score += 5;
   }

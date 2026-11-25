@@ -29,6 +29,10 @@ import {
   notionWritePageTool,
 } from "./notion.tools";
 import {
+  notionAnalyzePublicPageTool,
+  notionPublicLastUpdatedTool,
+} from "./notion-public.tool";
+import {
   cancelScheduledTaskTool,
   listScheduledTasksTool,
   scheduleTaskTool,
@@ -89,6 +93,8 @@ export const tools = {
   notion_update_page: notionUpdatePageTool,
   notion_write_page: notionWritePageTool,
   notion_create_database: notionCreateDatabaseTool,
+  notion_analyze_public_page: notionAnalyzePublicPageTool,
+  notion_public_last_updated: notionPublicLastUpdatedTool,
 } satisfies AppTools;
 
 export function getTools(): AppTools {
